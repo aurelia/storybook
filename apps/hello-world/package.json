@@ -1,0 +1,65 @@
+{
+  "name": "apptasks-video",
+  "description": "An Aurelia 2 client application.",
+  "version": "0.1.0",
+  "repository": {
+    "type": "git",
+    "url": "???"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@aurelia/router": "latest",
+    "@aurelia/validation": "^2.0.0-beta.23",
+    "@aurelia/validation-html": "^2.0.0-beta.23",
+    "aurelia": "latest"
+  },
+  "devDependencies": {
+    "@aurelia/storybook": "^0.1.1",
+    "@aurelia/testing": "latest",
+    "@aurelia/vite-plugin": "latest",
+    "@storybook/addon-actions": "^8.5.3",
+    "@storybook/addon-essentials": "^8.5.3",
+    "@storybook/addon-interactions": "^8.5.3",
+    "@storybook/addon-links": "^8.5.3",
+    "@storybook/builder-vite": "^8.5.3",
+    "@storybook/core-common": "^8.5.3",
+    "@storybook/preview-api": "^8.5.3",
+    "@storybook/testing-library": "^0.2.1",
+    "@storybook/types": "^8.5.3",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^22.10.2",
+    "eslint": "^9.17.0",
+    "globals": "^15.14.0",
+    "jsdom": "^25.0.1",
+    "node-html-parser": "^7.0.1",
+    "sass": "^1.83.4",
+    "stylelint": "^16.12.0",
+    "stylelint-config-standard": "^36.0.1",
+    "stylus": "^0.64.0",
+    "tailwindcss": "^4.0.0",
+    "tslib": "^2.8.1",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1",
+    "vite": "^6.0.3",
+    "vite-plugin-node-polyfills": "^0.22.0",
+    "vitest": "^2.1.8"
+  },
+  "scripts": {
+    "lint:js": "eslint src test",
+    "lint:css": "stylelint \"src/**/*.css\"",
+    "lint": "npm run lint:js && npm run lint:css",
+    "pretest": "npm run lint",
+    "start": "vite",
+    "build": "vite build",
+    "test": "vitest",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
+  },
+  "type": "module",
+  "overrides": {
+    "vite-plugin-node-polyfills": {
+      "vite": "^6.0.0"
+    }
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+}
