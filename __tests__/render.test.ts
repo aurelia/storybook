@@ -1,4 +1,4 @@
-import { STORY_CHANGED } from '@storybook/core-events';
+import { STORY_CHANGED } from 'storybook/internal/core-events';
 import {
   render,
   renderToCanvas,

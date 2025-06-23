@@ -2,13 +2,13 @@
 
 > **Note:** Storybook support is currently in an early stage, and there may be bugs, issues, or unsupported features in this plugin. The intention is to make this plugin more production-ready when Aurelia 2 reaches stable release.
 
-This package provides an integration between Aurelia 2 and Storybook 8 using Vite or Webpack. It lets you write and render Aurelia 2 components as Storybook stories with full support for Storybook controls, actions, and interactive testing.
+This package provides an integration between Aurelia 2 and Storybook 9 using Vite or Webpack. It lets you write and render Aurelia 2 components as Storybook stories with full support for Storybook controls, actions, and interactive testing.
 
 ## Features
 
 - **Vite & Webpack Support**: Works with both Vite (via `@storybook/builder-vite`) and Webpack 5 (via `@storybook/builder-webpack5`).
 - **Aurelia Enhancement**: Renders Aurelia 2 components using Aurelia's `enhance()` API.
-- **Storybook 8 Compatibility**: Fully compatible with Storybook 8's new rendering API.
+- **Storybook 9 Compatibility**: Fully compatible with Storybook 9's new rendering API.
 - **Arg & Action Support**: Use story args and actions as you would with any Storybook story.
 
 ## Installation
@@ -22,7 +22,13 @@ npm install --save-dev @aurelia/storybook
 Also, make sure to have the required dependencies installed in your project:
 
 ```bash
-npm install --save-dev @storybook/addons @storybook/core-events @storybook/builder-vite @storybook/core-common @storybook/preview-api @storybook/types
+npm install --save-dev storybook @storybook/builder-vite
+```
+
+For testing functionality, you may also want to install:
+
+```bash
+npm install --save-dev @storybook/test @storybook/addon-actions
 ```
 
 > **Tip:** Check your existing Aurelia 2 app for already installed versions. The peer dependencies are expected to be compatible with Aurelia 2 beta releases (see `package.json` for version details).
@@ -43,16 +49,14 @@ To integrate Aurelia 2 with your Storybook instance, follow these steps:
         Create or update your `.storybook/main.ts` file with the following contents:
 
         ```typescript
-        import type { StorybookConfig } from '@storybook/core-common';
-        import { mergeConfig } from 'vite';
+        import type { StorybookConfig } from 'storybook/internal/types';
+        import { mergeConfig, type InlineConfig } from 'vite';
 
-        const config: StorybookConfig & { viteFinal?: (config: any, options: any) => any } = {
+        const config: StorybookConfig & { viteFinal?: (config: InlineConfig, options: { configType: string }) => InlineConfig | Promise<InlineConfig> } = {
           stories: ['../src/stories/**/*.stories.@(ts|tsx|js|jsx|mdx)'],
           addons: [
-              // Addons like:
-              // '@storybook/addon-links',
-              // '@storybook/addon-essentials',
-              // '@storybook/addon-interactions'
+              // Additional addons (essentials are now built into Storybook 9 core):
+              '@storybook/addon-links'
           ],
           framework: {
             name: '@aurelia/storybook',
@@ -73,7 +77,7 @@ To integrate Aurelia 2 with your Storybook instance, follow these steps:
           },
         };
 
-        export default config as any;
+        export default config;
         ```
 
     -   **.storybook/preview.ts**
@@ -85,21 +89,20 @@ To integrate Aurelia 2 with your Storybook instance, follow these steps:
         export { render, renderToCanvas } from '@aurelia/storybook';
         ```
 
-    > **Note:** Addons such as `@storybook/addon-links`, `@storybook/addon-essentials`, and `@storybook/addon-interactions` are supported by installing them and adding them to the `addons` array in your configuration.
+    > **Note:** Essential features like actions, controls, backgrounds, and viewport are now built into Storybook 9 core and don't need to be installed separately. However, if you need to use the `action()` function in your stories (for programmatic actions), you may still need to install `@storybook/addon-actions`. Additional addons like `@storybook/addon-links` can be installed and added to the `addons` array in your configuration.
 
     ### Using with Webpack
 
     If you prefer to use Webpack instead of Vite, update your `.storybook/main.ts` configuration:
 
     ```typescript
-    import type { StorybookConfig } from '@storybook/core-common';
+    import type { StorybookConfig } from 'storybook/internal/types';
 
     const config: StorybookConfig = {
       stories: ['../src/**/*.stories.@(ts|tsx|js|jsx|mdx)'],
       addons: [
         '@storybook/addon-webpack5-compiler-swc',
-        '@storybook/addon-links',
-        '@storybook/addon-essentials'
+        '@storybook/addon-links'
       ],
       framework: {
         name: '@aurelia/storybook',
@@ -133,7 +136,7 @@ Aurelia 2 stories are written similarly to standard Storybook stories, with a fe
 ```typescript
 import { HelloWorld } from '../hello-world';
 import { action } from '@storybook/addon-actions';
-import { userEvent, within } from '@storybook/testing-library';
+import { userEvent, within } from '@storybook/test';
 
 const meta = {
   title: 'Example/HelloWorld',
@@ -214,13 +217,7 @@ If you wish to contribute or modify the integration:
    npm run watch
    ```
 
-3. **Link the package** in your Aurelia project:
-
-   ```bash
-   npm link @aurelia/storybook
-   ```
-
-4. **Run Storybook** in your local Aurelia application to see the integration in action.
+3. **Run Storybook** in your local application to see the integration in action.
 
 ## Contributing
 

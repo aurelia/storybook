@@ -1,5 +1,5 @@
-import { STORY_CHANGED } from '@storybook/core-events';
-import type { RenderContext, ArgsStoryFn } from '@storybook/types';
+import { STORY_CHANGED } from 'storybook/internal/core-events';
+import type { RenderContext, ArgsStoryFn } from 'storybook/internal/types';
 import type { AureliaRenderer } from './types';
 import Aurelia, { Constructable, CustomElement } from 'aurelia';
 

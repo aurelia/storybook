@@ -6,10 +6,7 @@ import { glob } from 'glob';
 const external = [
   '@aurelia/runtime-html',
   '@aurelia/vite-plugin',
-  '@storybook/addons',
   '@storybook/builder-vite',
-  '@storybook/core-common',
-  '@storybook/core-events',
   'aurelia'
 ];
 
