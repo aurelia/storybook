@@ -8,15 +8,15 @@
   },
   "license": "UNLICENSED",
   "dependencies": {
-    "@aurelia/router": "latest",
-    "@aurelia/validation": "^2.0.0-beta.23",
-    "@aurelia/validation-html": "^2.0.0-beta.23",
-    "aurelia": "latest"
+    "@aurelia/router": "^2.0.0-beta.24",
+    "@aurelia/validation": "^2.0.0-beta.24",
+    "@aurelia/validation-html": "^2.0.0-beta.24",
+    "aurelia": "^2.0.0-beta.24"
   },
   "devDependencies": {
     "@aurelia/storybook": "^0.1.1",
-    "@aurelia/testing": "latest",
-    "@aurelia/vite-plugin": "latest",
+    "@aurelia/testing": "^2.0.0-beta.24",
+    "@aurelia/vite-plugin": "^2.0.0-beta.24",
     "@storybook/addon-actions": "^8.5.3",
     "@storybook/addon-essentials": "^8.5.3",
     "@storybook/addon-interactions": "^8.5.3",
