@@ -1,5 +1,4 @@
 import { STORY_CHANGED } from '@storybook/core-events';
-import { CustomElement } from 'aurelia';
 import {
   render,
   renderToCanvas,
