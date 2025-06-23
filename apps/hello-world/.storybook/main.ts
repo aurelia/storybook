@@ -1,12 +1,10 @@
-import type { StorybookConfig } from '@storybook/core-common';
-import { mergeConfig } from 'vite';
+import type { StorybookConfig } from 'storybook/internal/types';
+import { mergeConfig, type InlineConfig } from 'vite';
 
-const config: StorybookConfig & { viteFinal?: (config: any, options: any) => any } = {
+const config: StorybookConfig & { viteFinal?: (config: InlineConfig, options: { configType: string }) => InlineConfig | Promise<InlineConfig> } = {
   stories: ['../src/stories/**/*.stories.@(ts|tsx|js|jsx|mdx)'],
   addons: [
-    '@storybook/addon-links',
-    '@storybook/addon-essentials',
-    '@storybook/addon-interactions'
+    '@storybook/addon-links'
   ],
   framework: {
     name: '@aurelia/storybook',
@@ -27,4 +25,4 @@ const config: StorybookConfig & { viteFinal?: (config: any, options: any) => any
   },
 };
 
-export default config as any;
+export default config;

@@ -1,11 +1,11 @@
 import { HelloWorld } from '../hello-world';
 import { action } from '@storybook/addon-actions';
-import { userEvent, within } from '@storybook/testing-library';
+import { userEvent, within } from '@storybook/test';
 
 const meta = {
   title: 'Example/HelloWorld',
   component: HelloWorld,
-  render: (args) => ({
+  render: () => ({
     template: `<hello-world message.bind="message" on-increment.bind="onIncrement"></hello-world>`,
   }),
   argTypes: {
@@ -28,9 +28,10 @@ export const InteractiveHelloWorld = {
     message: "Try clicking the button!",
     onIncrement: action('increment')
   },
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
     const canvas = within(canvasElement);
     const button = canvas.getByRole('button');
+    // Simulate three button clicks
     await userEvent.click(button);
     await userEvent.click(button);
     await userEvent.click(button);
@@ -44,7 +45,7 @@ export const NoArgs = {
 };
 
 export const WithCustomTemplate = {
-  render: (args) => ({
+  render: () => ({
     template: `<hello-world message.bind="message">Click me!</hello-world>`
   }),
   args: {
