@@ -1,7 +1,7 @@
 {
   "name": "@aurelia/storybook",
-  "version": "0.1.1",
-  "description": "A Storybook plugin to render Aurelia 2 components using Vite",
+  "version": "1.0.0",
+  "description": "A Storybook plugin to render Aurelia 2 components using Vite or Webpack",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "module": "dist/index.mjs",
@@ -15,15 +15,17 @@
     "test": "jest"
   },
   "peerDependencies": {
-    "@aurelia/runtime-html": "^2.0.0-beta.23",
-    "@aurelia/vite-plugin": "^2.0.0-beta.23",
+    "@aurelia/runtime-html": "^2.0.0-beta.24",
+    "@aurelia/vite-plugin": "^2.0.0-beta.24",
     "@storybook/addons": "^7.6.17",
     "@storybook/builder-vite": "^8.5.3",
+    "@storybook/builder-webpack5": "^8.5.3",
     "@storybook/core-common": "^8.5.3",
     "@storybook/core-events": "^8.5.3",
-    "aurelia": "^2.0.0-beta.23"
+    "aurelia": "^2.0.0-beta.24"
   },
   "devDependencies": {
+    "@aurelia/webpack-loader": "2.0.0-beta.24",
     "@rollup/plugin-commonjs": "^28.0.2",
     "@rollup/plugin-node-resolve": "^16.0.0",
     "@rollup/plugin-typescript": "^12.1.2",
@@ -37,6 +39,7 @@
     "jest-environment-jsdom": "^29.7.0",
     "rollup": "^4.34.2",
     "ts-jest": "^29.2.5",
+    "ts-loader": "9.5.2",
     "typescript": "^5.7.3"
   },
   "exports": {

@@ -1,12 +1,12 @@
 # @aurelia/storybook
 
-> **Note:** Storybook support is currently in an early stage, and there may be bugs, issues, or unsupported features in this plugin. The intention is to make this plugin more production-ready when Aurelia 2 reaches stable release. Currently, it only works with Vite, with Webpack support planned shortly.
+> **Note:** Storybook support is currently in an early stage, and there may be bugs, issues, or unsupported features in this plugin. The intention is to make this plugin more production-ready when Aurelia 2 reaches stable release.
 
-This package provides an integration between Aurelia 2 and Storybook 8 using Vite. It lets you write and render Aurelia 2 components as Storybook stories with full support for Storybook controls, actions, and interactive testing.
+This package provides an integration between Aurelia 2 and Storybook 8 using Vite or Webpack. It lets you write and render Aurelia 2 components as Storybook stories with full support for Storybook controls, actions, and interactive testing.
 
 ## Features
 
-- **Vite-Powered Build**: Uses Vite (via the provided preset) to bundle your stories.
+- **Vite & Webpack Support**: Works with both Vite (via `@storybook/builder-vite`) and Webpack 5 (via `@storybook/builder-webpack5`).
 - **Aurelia Enhancement**: Renders Aurelia 2 components using Aurelia's `enhance()` API.
 - **Storybook 8 Compatibility**: Fully compatible with Storybook 8's new rendering API.
 - **Arg & Action Support**: Use story args and actions as you would with any Storybook story.
@@ -86,6 +86,34 @@ To integrate Aurelia 2 with your Storybook instance, follow these steps:
         ```
 
     > **Note:** Addons such as `@storybook/addon-links`, `@storybook/addon-essentials`, and `@storybook/addon-interactions` are supported by installing them and adding them to the `addons` array in your configuration.
+
+    ### Using with Webpack
+
+    If you prefer to use Webpack instead of Vite, update your `.storybook/main.ts` configuration:
+
+    ```typescript
+    import type { StorybookConfig } from '@storybook/core-common';
+
+    const config: StorybookConfig = {
+      stories: ['../src/**/*.stories.@(ts|tsx|js|jsx|mdx)'],
+      addons: [
+        '@storybook/addon-webpack5-compiler-swc',
+        '@storybook/addon-links',
+        '@storybook/addon-essentials'
+      ],
+      framework: {
+        name: '@aurelia/storybook',
+        options: {},
+      },
+      core: {
+        builder: '@storybook/builder-webpack5',
+      },
+    };
+
+    export default config;
+    ```
+
+    The `.storybook/preview.ts` file remains the same for both Vite and Webpack configurations.
 
 3. **Add scripts to your package.json**:
     Add the following scripts to your `package.json` file to work with Storybook:
