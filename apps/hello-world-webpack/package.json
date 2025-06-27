@@ -12,7 +12,7 @@
     "aurelia": "2.0.0-beta.24"
   },
   "devDependencies": {
-    "@aurelia/storybook": "^1.0.1",
+    "@aurelia/storybook": "^1.0.2",
     "@aurelia/testing": "2.0.0-beta.24",
     "@aurelia/webpack-loader": "2.0.0-beta.24",
     "@storybook/addon-actions": "^9.0.8",
