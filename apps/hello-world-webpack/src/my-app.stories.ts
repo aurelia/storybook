@@ -1,12 +1,15 @@
 import { MyApp } from './my-app';
 
-export default {
-  title: 'My-App',
+const meta = {
+  title: 'Example/MyApp',
   component: MyApp,
+  render: () => ({
+    template: `<my-app></my-app>`,
+  }),
 };
 
-export const Default = () => ({
-  Component: MyApp,
-  template: '<my-app></my-app>',
-  props: {}
-}); 
+export default meta;
+
+export const Default = {
+  args: {}
+}; 
