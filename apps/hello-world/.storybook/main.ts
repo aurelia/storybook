@@ -14,13 +14,35 @@ const config: StorybookConfig & { viteFinal?: (config: InlineConfig, options: { 
     builder: '@storybook/builder-vite',
   },
   viteFinal: async (viteConfig) => {
-    viteConfig.optimizeDeps = viteConfig.optimizeDeps || {};
-    viteConfig.optimizeDeps.exclude = viteConfig.optimizeDeps.exclude || [];
-    if (!viteConfig.optimizeDeps.exclude.includes('@aurelia/runtime-html')) {
-      viteConfig.optimizeDeps.exclude.push('@aurelia/runtime-html');
+    // Initialize optimizeDeps and exclude array
+    if (!viteConfig.optimizeDeps) {
+      viteConfig.optimizeDeps = {};
     }
+    if (!viteConfig.optimizeDeps.exclude) {
+      viteConfig.optimizeDeps.exclude = [];
+    }
+    
+    // Exclude Aurelia dependencies from pre-bundling, but allow React for Storybook
+    const excludeList = [
+      '@aurelia/runtime-html'
+    ];
+    
+    excludeList.forEach(dep => {
+      if (viteConfig.optimizeDeps?.exclude && !viteConfig.optimizeDeps.exclude.includes(dep)) {
+        viteConfig.optimizeDeps.exclude.push(dep);
+      }
+    });
+
     return mergeConfig(viteConfig, {
-      // ...any additional Vite configuration
+      define: {
+        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+      },
+      // Allow React to be bundled for Storybook's theming system
+      resolve: {
+        alias: {
+          // Ensure React is properly resolved
+        }
+      }
     });
   },
 };

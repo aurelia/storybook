@@ -1,5 +1,5 @@
 import { HelloWorld } from '../hello-world';
-import { action } from '@storybook/addon-actions';
+import { fn } from '@storybook/test';
 import { userEvent, within } from '@storybook/test';
 
 const meta = {
@@ -18,15 +18,15 @@ export default meta;
 
 export const DefaultHelloWorld = {
   args: {
-    message: "Hello from Storybook!",
-    onIncrement: action('increment')
+    message: "Hello frof",
+    onIncrement: fn()
   }
 };
 
 export const InteractiveHelloWorld = {
   args: {
-    message: "Try clicking the button!",
-    onIncrement: action('increment')
+    message: "fsdfdddsdsdsdsdddddfdddd",
+    onIncrement: fn()
   },
   play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
     const canvas = within(canvasElement);
@@ -49,6 +49,6 @@ export const WithCustomTemplate = {
     template: `<hello-world message.bind="message">Click me!</hello-world>`
   }),
   args: {
-    message: "This is a custom message"
+    message: "This is a custom messageddd"
   }
 };
