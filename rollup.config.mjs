@@ -7,7 +7,12 @@ const external = [
   '@aurelia/runtime-html',
   '@aurelia/vite-plugin',
   '@storybook/builder-vite',
-  'aurelia'
+  'aurelia',
+  'react',
+  'react-dom',
+  'storybook/internal/core-events',
+  'storybook/internal/types',
+  'storybook/theming'
 ];
 
 // Get all TypeScript files from src directory

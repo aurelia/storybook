@@ -7,7 +7,25 @@ import { getRules } from './webpack';
  * Optionally adjust the Vite configuration.
  */
 export async function viteFinal(config: any): Promise<any> {
-    // For now, return the config unchanged.
+    // Configure Vite to properly handle dependencies
+    config.define = config.define || {};
+    config.define['process.env.NODE_ENV'] = JSON.stringify(process.env.NODE_ENV || 'development');
+    
+    // Configure optimization deps
+    config.optimizeDeps = config.optimizeDeps || {};
+    config.optimizeDeps.exclude = config.optimizeDeps.exclude || [];
+    
+    // Only exclude Aurelia-specific dependencies that cause issues
+    const excludeList = [
+        '@aurelia/runtime-html'
+    ];
+    
+    excludeList.forEach(dep => {
+        if (!config.optimizeDeps.exclude.includes(dep)) {
+            config.optimizeDeps.exclude.push(dep);
+        }
+    });
+    
     return config;
 }
 

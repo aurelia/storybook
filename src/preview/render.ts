@@ -13,18 +13,8 @@ interface AureliaStoryResult {
   props?: Record<string, any>;
 }
 
-/**
- * Merges multiple sources into a single object.
- * Sources can be story parameters, args, or story.props.
- */
-function mergeStoryProps(
-  ...sources: Array<Record<string, any> | undefined>
-): Record<string, any> {
-  return Object.assign({}, ...sources);
-}
-
 // Track Aurelia apps for cleanup
-const appMap = new Map<HTMLElement, Aurelia>();
+const appMap = new Map<HTMLElement, any>();
 
 async function teardown(element: HTMLElement) {
   if (appMap.has(element)) {
@@ -36,7 +26,9 @@ async function teardown(element: HTMLElement) {
   }
 }
 
-export const render: ArgsStoryFn<AureliaRenderer> = (args, { id, component: Component }) => {
+export const render: ArgsStoryFn<AureliaRenderer> = (args, context) => {
+  const { id, component: Component } = context;
+  
   if (!Component) {
     throw new Error(
       `Unable to render story ${id} as the component annotation is missing from the default export`
@@ -56,14 +48,34 @@ export async function renderToCanvas(
     forceRemount,
   }: RenderContext<AureliaRenderer>,
   canvasElement: HTMLElement,
-  bootstrapAppFn?: typeof bootstrapAureliaApp
+  bootstrapAppFn?: typeof createAureliaApp
 ) {
-  const appBootstrapFn = bootstrapAppFn || bootstrapAureliaApp;
+  // Store reference to the original storybook root element
+  const rootElement = canvasElement;
 
+  // Ensure we have (or create) a single container inside the root where the Aurelia app actually renders
+  let hostElement: HTMLElement;
+  if (rootElement.id === 'storybook-root') {
+    hostElement = rootElement.querySelector('.aurelia-story-container') as HTMLElement;
+    if (!hostElement) {
+      hostElement = document.createElement('div');
+      hostElement.className = 'aurelia-story-container';
+      hostElement.style.height = '100%';
+      rootElement.appendChild(hostElement);
+    }
+  } else {
+    hostElement = rootElement;
+  }
+
+  // All app instances are now tracked by the *root* element, ensuring we only ever have one per story iframe
+  const appBootstrapFn = bootstrapAppFn ?? createAureliaApp;
   const { parameters, component, args } = storyContext;
-  let app = appMap.get(canvasElement);
-
+  
+  let app = appMap.get(rootElement);
   const story = storyFn() as AureliaStoryResult;
+  
+  // Temporary debug logging
+  console.log(`[DEBUG] Story: ${name}, forceRemount: ${forceRemount}, hasExistingApp: ${!!app}, canvasId: ${canvasElement.className}`);
 
   if (!story) {
     showError({
@@ -78,50 +90,40 @@ export async function renderToCanvas(
 
   showMain();
 
-  let mergedProps;
-  // Use full merge (including story.props) when bootstrapping a new app or force remounting.
   if (!app || forceRemount) {
-    mergedProps = mergeStoryProps(parameters?.args, args, story.props);
-    if (app) {
-      await teardown(canvasElement);
+    if (forceRemount && app) {
+      await teardown(rootElement);
+      app = undefined;
     }
-    app = appBootstrapFn(
+    // Clear container before mounting new app
+    hostElement.innerHTML = '';
+
+    const mergedProps = { ...parameters?.args, ...args, ...story.props };
+
+    const aureliaApp = appBootstrapFn(
       story,
       mergedProps,
-      canvasElement,
+      hostElement,
       component as Constructable
-    ) as Aurelia;
-    await app.start();
-    appMap.set(canvasElement, app);
+    );
+    await aureliaApp.start();
+    appMap.set(rootElement, aureliaApp);
+    app = aureliaApp;
   } else {
-    // Update the existing app viewModel only with parameters and args (exclude story.props).
-    mergedProps = mergeStoryProps(parameters?.args, args);
-    if (app.root?.controller?.viewModel) {
+    // update existing app props
+    const mergedProps = { ...parameters?.args, ...args, ...story.props };
+    if (app?.root?.controller?.viewModel) {
       Object.assign(app.root.controller.viewModel, mergedProps);
     }
   }
 
-  // Set up story change listener for cleanup
-  const channel = storyContext.viewMode === 'story' ? storyContext.channel : null;
-  let onStoryChange: () => void;
-  if (channel) {
-    onStoryChange = () => {
-      // When the story changes, clean up the Aurelia app
-      teardown(canvasElement);
-    };
-    channel.on(STORY_CHANGED, onStoryChange);
-  }
-
-  // Return teardown function that also unsubscribes from STORY_CHANGED
+  // Return cleanup fn
   return async () => {
-    if (channel && onStoryChange) {
-      channel.off(STORY_CHANGED, onStoryChange);
-    }
-    await teardown(canvasElement);
+    await teardown(rootElement);
   };
 }
 
-export function bootstrapAureliaApp(
+export function createAureliaApp(
   story: AureliaStoryResult,
   args: Record<string, any>,
   domElement: HTMLElement,
@@ -146,7 +148,7 @@ export function bootstrapAureliaApp(
 
   const App = CustomElement.define(
     {
-      name: 'au-storybook',
+      name: 'sb-app',
       template,
       containerless: true,
     },
