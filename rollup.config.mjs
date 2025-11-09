@@ -26,7 +26,7 @@ const createConfig = (input, output) => ({
   input,
   output: {
     file: output,
-    format: output.endsWith('.mjs') ? 'esm' : 'cjs',
+    format: 'esm',
     sourcemap: true,
     exports: 'named'
   },
@@ -42,12 +42,9 @@ const createConfig = (input, output) => ({
   external
 });
 
-// Create configs for all source files
-const configs = Object.entries(srcFiles).flatMap(([name, input]) => [
-  // ESM build
-  createConfig(input, `dist/${name}.mjs`),
-  // CommonJS build
+// Create configs for all source files - ESM only for Storybook v10
+const configs = Object.entries(srcFiles).map(([name, input]) =>
   createConfig(input, `dist/${name}.js`)
-]);
+);
 
 export default configs;

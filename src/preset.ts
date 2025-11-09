@@ -46,4 +46,4 @@ export async function webpackFinal(config: any): Promise<any> {
 // Export a default for compatibility.
 export default { viteFinal, webpackFinal };
 
-export const previewAnnotations = [require.resolve('./preview')];
+export const previewAnnotations = ['./preview.js'];
