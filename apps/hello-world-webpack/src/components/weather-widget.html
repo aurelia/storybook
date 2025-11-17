@@ -1,0 +1,89 @@
+<style>
+  .weather-widget {
+    width: 320px;
+    border-radius: 24px;
+    padding: 22px;
+    background: linear-gradient(160deg, #fef3c7, #fcd34d);
+    color: #1f2937;
+    box-shadow: 0 20px 45px rgba(244, 114, 10, 0.25);
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  .weather-widget header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .weather-widget header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  .weather-widget button {
+    border: none;
+    background: rgba(255, 255, 255, 0.4);
+    color: #92400e;
+    border-radius: 12px;
+    padding: 6px 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  .weather-widget button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .weather-widget button:not(:disabled):hover,
+  .weather-widget button:not(:disabled):focus-visible {
+    background: rgba(255, 255, 255, 0.6);
+  }
+
+  .weather-widget__state {
+    padding: 16px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.6);
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .weather-widget__state--error {
+    background: rgba(248, 113, 113, 0.3);
+    color: #991b1b;
+  }
+
+  .weather-widget__body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-weight: 600;
+  }
+
+  .weather-widget__temp {
+    font-size: 64px;
+    margin: 0;
+    font-weight: 700;
+  }
+
+  .weather-widget__body small {
+    font-size: 14px;
+    opacity: 0.8;
+  }
+</style>
+<section class="weather-widget" aria-live="polite">
+  <header>
+    <h2>${location}</h2>
+    <button type="button" click.trigger="refresh()" disabled.bind="state === 'loading'">Refresh</button>
+  </header>
+  <div if.bind="state === 'loading'" class="weather-widget__state">Loading latest data...</div>
+  <div if.bind="state === 'error'" class="weather-widget__state weather-widget__state--error">${error}</div>
+  <div if.bind="state === 'ready'" class="weather-widget__body">
+    <p class="weather-widget__temp">${report.temperature}&deg;</p>
+    <p>${report.condition}</p>
+    <small>High ${report.high}&deg; - Low ${report.low}&deg;</small>
+  </div>
+</section>

@@ -1,0 +1,107 @@
+<style>
+  .stat-card {
+    border-radius: 16px;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #1f3d8f, #3c74ff);
+    color: #fff;
+    box-shadow: 0 20px 45px rgba(13, 32, 94, 0.35);
+    max-width: 360px;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  .stat-card__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .stat-card__label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 12px;
+    opacity: 0.8;
+    margin: 0 0 6px;
+  }
+
+  .stat-card__value {
+    font-size: 44px;
+    margin: 0;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .stat-card__unit {
+    font-size: 20px;
+    margin-left: 6px;
+    opacity: 0.85;
+  }
+
+  .stat-card__refresh {
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s ease, border 0.2s ease;
+  }
+
+  .stat-card__refresh:focus-visible,
+  .stat-card__refresh:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.7);
+  }
+
+  .stat-card__description {
+    margin: 18px 0 12px;
+    font-size: 15px;
+    opacity: 0.9;
+  }
+
+  .stat-card__footer {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .stat-card__footer.positive {
+    background: rgba(20, 235, 178, 0.2);
+    color: #14ebb2;
+  }
+
+  .stat-card__footer.negative {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+  }
+
+  .stat-card__footer.neutral {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+  }
+</style>
+<section class="stat-card" aria-live="polite">
+  <header class="stat-card__header">
+    <div>
+      <p class="stat-card__label">${title}</p>
+      <h2 class="stat-card__value">
+        ${value}<span if.bind="unit" class="stat-card__unit">${unit}</span>
+      </h2>
+    </div>
+    <button type="button" class="stat-card__refresh" click.trigger="refresh()" title="Refresh metric" aria-label="Refresh metric">
+      Refresh
+    </button>
+  </header>
+  <p class="stat-card__description">${description}</p>
+  <footer class="stat-card__footer ${changeState}">
+    <strong>${changeLabel}</strong>
+    <span>${changeCopy}</span>
+  </footer>
+</section>

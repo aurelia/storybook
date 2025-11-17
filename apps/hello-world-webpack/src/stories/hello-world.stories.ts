@@ -17,14 +17,14 @@ export default meta;
 
 export const DefaultHelloWorld = {
   args: {
-    message: "Hello frof",
+    message: 'Hello from Aurelia Storybook',
     onIncrement: fn()
   }
 };
 
 export const InteractiveHelloWorld = {
   args: {
-    message: "kjkjk",
+    message: 'Try clicking the button!',
     onIncrement: fn()
   },
   play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
@@ -48,6 +48,6 @@ export const WithCustomTemplate = {
     template: `<hello-world message.bind="message">Click me!</hello-world>`
   }),
   args: {
-    message: "This is a custom messageddd"
+    message: 'This is a custom message'
   }
-}; 
+};
