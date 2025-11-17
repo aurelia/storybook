@@ -18,15 +18,15 @@
     "test": "NODE_OPTIONS=--no-deprecation jest"
   },
   "peerDependencies": {
-    "@aurelia/runtime-html": "^2.0.0-beta.24",
-    "@aurelia/vite-plugin": "^2.0.0-beta.24",
+    "@aurelia/runtime-html": "^2.0.0-beta.25",
+    "@aurelia/vite-plugin": "^2.0.0-beta.25",
     "@storybook/builder-vite": "^10.0.0",
     "@storybook/builder-webpack5": "^10.0.0",
-    "aurelia": "^2.0.0-beta.24",
+    "aurelia": "^2.0.0-beta.25",
     "storybook": "^10.0.0"
   },
   "devDependencies": {
-    "@aurelia/webpack-loader": "^2.0.0-beta.24",
+    "@aurelia/webpack-loader": "^2.0.0-beta.25",
     "@rollup/plugin-commonjs": "^28.0.6",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-typescript": "^12.1.3",
