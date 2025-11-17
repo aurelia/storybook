@@ -1,0 +1,111 @@
+<style>
+  .feedback-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 28px;
+    border-radius: 18px;
+    background: #fff;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 15px 40px rgba(15, 23, 42, 0.08);
+    max-width: 420px;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  .feedback-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 14px;
+    color: #0f172a;
+    font-weight: 600;
+  }
+
+  .feedback-form input,
+  .feedback-form select,
+  .feedback-form textarea {
+    border-radius: 12px;
+    border: 1px solid rgba(15, 23, 42, 0.15);
+    padding: 12px 14px;
+    font-size: 15px;
+    font-weight: 500;
+    color: #0f172a;
+    background: #f8fafc;
+    transition: border 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .feedback-form input:focus,
+  .feedback-form select:focus,
+  .feedback-form textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+    background: #fff;
+  }
+
+  .feedback-form__actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  .feedback-form__actions button {
+    flex: 1;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .feedback-form__actions button:first-child {
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    color: #fff;
+    box-shadow: 0 15px 30px rgba(79, 70, 229, 0.3);
+  }
+
+  .feedback-form__actions button:first-child:disabled {
+    opacity: 0.65;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  .feedback-form__actions button:last-child {
+    background: #e2e8f0;
+    color: #0f172a;
+  }
+
+  .feedback-form__success {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #059669;
+    text-align: center;
+  }
+</style>
+<form class="feedback-form" submit.trigger="submit($event)" aria-live="polite">
+  <label>
+    Name
+    <input type="text" value.two-way="form.name" placeholder="Ada Lovelace" required />
+  </label>
+  <label>
+    Email
+    <input type="email" value.two-way="form.email" placeholder="ada@example.com" required />
+  </label>
+  <label>
+    Topic
+    <select value.two-way="form.topic">
+      <option repeat.for="topic of topics" value.bind="topic">${topic}</option>
+    </select>
+  </label>
+  <label>
+    Message
+    <textarea rows="4" value.two-way="form.message"></textarea>
+  </label>
+  <div class="feedback-form__actions">
+    <button type="submit" disabled.bind="submitting">${submitting ? 'Sending...' : 'Send feedback'}</button>
+    <button type="button" click.trigger="reset()" disabled.bind="submitting">Reset</button>
+  </div>
+  <p if.bind="submitted" class="feedback-form__success">Thank you for the feedback!</p>
+</form>
