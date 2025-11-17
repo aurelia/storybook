@@ -1,6 +1,5 @@
 import { HelloWorld } from '../hello-world';
-import { fn } from '@storybook/test';
-import { userEvent, within } from '@storybook/test';
+import { fn, userEvent, within } from 'storybook/test';
 
 const meta = {
   title: 'Example/HelloWorld',
