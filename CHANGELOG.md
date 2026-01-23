@@ -1,4 +1,4 @@
-## [2.2.0](https://github.com/aurelia/storybook/compare/2.1.0...2.2.0) (2026-01-23)
+## [2.2.1](https://github.com/aurelia/storybook/compare/2.1.0...2.2.1) (2026-01-23)
 
 ### Features
 
