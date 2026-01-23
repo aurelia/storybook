@@ -7,16 +7,18 @@ const external = [
   '@aurelia/runtime-html',
   '@aurelia/vite-plugin',
   '@storybook/builder-vite',
+  '@rsbuild/core',
   'aurelia',
   'react',
   'react-dom',
-  'storybook/internal/core-events',
   'storybook/internal/types',
   'storybook/theming'
 ];
 
 // Get all TypeScript files from src directory
-const srcFiles = glob.sync('src/**/*.ts').reduce((acc, file) => {
+const srcFiles = glob
+  .sync('src/**/*.ts', { ignore: ['src/preview/types.ts', 'src/preview/storybook-types.ts'] })
+  .reduce((acc, file) => {
   const key = file.replace(/^src\//, '').replace(/\.ts$/, '');
   acc[key] = file;
   return acc;

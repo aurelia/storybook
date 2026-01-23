@@ -1,11 +1,13 @@
+import { defineAureliaStory } from '@aurelia/storybook';
 import { MyApp } from './my-app';
 
 const meta = {
   title: 'Example/MyApp',
   component: MyApp,
-  render: () => ({
-    template: `<my-app></my-app>`,
-  }),
+  render: () =>
+    defineAureliaStory({
+      template: `<my-app></my-app>`,
+    }),
 };
 
 export default meta;

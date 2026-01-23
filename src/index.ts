@@ -1,8 +1,18 @@
-import type { StorybookConfig } from 'storybook/internal/types';
 import { renderToCanvas } from './preview/render';
+import { defineAureliaStory } from './preview/helpers';
 
 export { renderToCanvas };
 export const render = renderToCanvas;
+export { defineAureliaStory };
+export type {
+  AureliaRenderer,
+  AureliaStoryResult,
+  AureliaArgsStoryFn,
+  AureliaRenderContext,
+  AureliaStoryContext,
+  AureliaParameters,
+  AureliaStoryParameters
+} from './preview/types';
 
 // Define the framework
 export const framework = {

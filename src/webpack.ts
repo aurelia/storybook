@@ -19,3 +19,22 @@ export function getRules(): RuleSetRule[] {
     },
   ];
 }
+
+/**
+ * Rsbuild/Rspack rules (avoid ts-loader; Rsbuild handles TS transpilation).
+ */
+export function getRsbuildRules(): RuleSetRule[] {
+  return [
+    {
+      test: /\.ts$/i,
+      enforce: 'pre',
+      use: ['@aurelia/webpack-loader'],
+      exclude: /node_modules/,
+    },
+    {
+      test: /\.html$/i,
+      use: '@aurelia/webpack-loader',
+      exclude: /node_modules/,
+    },
+  ];
+}

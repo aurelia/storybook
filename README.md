@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | Storybook | 10.x (ESM) | Tested with 10.0.5+; works with `storybook dev`/`storybook build` commands. |
 | Aurelia | 2.0.0-beta.25+ | Uses Aurelia's `enhance()` APIs under the hood. |
-| Bundlers | `@storybook/builder-vite` (Vite 5) · `@storybook/builder-webpack5` | Pick whichever matches your app; both share the same Aurelia preview runtime. |
+| Bundlers | `@storybook/builder-vite` (Vite 5) · `@storybook/builder-webpack5` · `storybook-builder-rsbuild` (Rsbuild/Rspack) | Pick whichever matches your app; they share the same Aurelia preview runtime. |
 | Node.js | ≥ 20.19.0 or ≥ 22.12.0 | Matches the engines field in `package.json` and Storybook 10's baseline.
 
 ## Requirements
@@ -25,6 +25,8 @@
 npm install --save-dev @aurelia/storybook storybook @storybook/builder-vite
 # or, for Webpack builds:
 npm install --save-dev @aurelia/storybook storybook @storybook/builder-webpack5
+# or, for Rsbuild/Rspack builds:
+npm install --save-dev @aurelia/storybook storybook storybook-builder-rsbuild @rsbuild/core
 ```
 
 Add whichever addons you need (`@storybook/addon-links`, `@storybook/addon-actions`, etc.). Essentials functionality now ships with Storybook 10 core, so most projects only add optional extras.
@@ -119,6 +121,37 @@ Add whichever addons you need (`@storybook/addon-links`, `@storybook/addon-actio
 
 ---
 
+## Quick Start (Rsbuild/Rspack Builder)
+
+1. Install `storybook-builder-rsbuild` and `@rsbuild/core`.
+2. Create `.storybook/main.ts`:
+
+   ```ts
+   import type { StorybookConfig } from 'storybook/internal/types';
+
+   const config: StorybookConfig = {
+     stories: ['../src/**/*.stories.@(ts|tsx|js|jsx|mdx)'],
+     addons: ['@storybook/addon-links'],
+     framework: {
+       name: '@aurelia/storybook',
+       options: {},
+     },
+     core: {
+       builder: 'storybook-builder-rsbuild',
+     },
+   };
+
+   export default config;
+   ```
+
+   The Aurelia preset injects the `ts-loader` + `@aurelia/webpack-loader` rules via `rsbuildFinal`,
+   so most projects do not need extra Rsbuild configuration. If you do, add your own `rsbuildFinal`
+   and merge with `@rsbuild/core`'s `mergeRsbuildConfig`.
+
+3. Reuse the same `.storybook/preview.ts` and `package.json` scripts as in the Vite quick start.
+
+---
+
 ## Writing Aurelia Stories
 
 Story files look exactly like standard Storybook CSF stories. The framework export automatically:
@@ -178,6 +211,22 @@ export const WithCustomTemplate = {
 };
 ```
 
+### Helper for Typed Story Results
+
+If you want stronger typing (especially for `props`), you can use the helper and types exported by the package:
+
+```ts
+import { defineAureliaStory, type AureliaStoryResult } from '@aurelia/storybook';
+
+const render = (args: { title: string }): AureliaStoryResult<{ title: string }> =>
+  defineAureliaStory({
+    template: `<my-card title.bind="title"></my-card>`,
+    props: args,
+  });
+```
+
+You can also import directly from `@aurelia/storybook/preview` or `@aurelia/storybook/preview/types` if you prefer.
+
 ### Story Result Contract
 
 When you provide a custom `render` function, return an object with any of the following fields. The Aurelia runtime consumes them while creating the preview app:
@@ -219,6 +268,117 @@ export const WithServices = {
 ```
 
 Because the Aurelia app lives for the lifetime of the story iframe, DI registrations persist until the story is torn down or Storybook forces a remount. If you need a clean state between stories, set `parameters: { forceRemount: true }` on the story or click the *Remount component* toolbar button in Storybook.
+
+### Global Aurelia Configuration (Preview + Story Parameters)
+
+You can register global resources/plugins and customize the DI container via Storybook parameters. The framework reads `parameters.aurelia` from the merged Storybook context (preview + component + story):
+
+```ts
+// .storybook/preview.ts
+import { Registration } from 'aurelia';
+import { CurrencyValueConverter } from '../src/resources/currency';
+import { FeatureFlags } from '../src/services/feature-flags';
+
+export const parameters = {
+  aurelia: {
+    register: [CurrencyValueConverter],
+    configureContainer: (container) => {
+      container.register(Registration.instance(FeatureFlags, { beta: true }));
+    },
+  },
+};
+```
+
+You can also override or extend per story:
+
+```ts
+export const WithOverrides = {
+  parameters: {
+    aurelia: {
+      configureContainer: (container) => {
+        container.register(Registration.instance('apiBaseUrl', 'https://staging.example.com'));
+      },
+    },
+  },
+};
+```
+
+These hooks run when the Aurelia app is created. If you rely on different container setups per story, use `parameters: { forceRemount: true }` to ensure a fresh app instance.
+
+#### Parameters API (Quick Reference)
+
+```ts
+export const parameters = {
+  aurelia: {
+    // Register global resources/plugins
+    register: [MyElement, MyValueConverter],
+    // Optional aliases for parity with story results
+    components: [MyElement],
+    items: [Registration.instance(MyService, new MyService())],
+    // Configure the DI container
+    configureContainer: (container, context) => {
+      // ...
+    },
+    // Configure the Aurelia instance
+    configure: (aurelia, context) => {
+      // ...
+    },
+  },
+};
+```
+
+## Cookbook
+
+### 1) Register global resources once
+
+```ts
+// .storybook/preview.ts
+import { Registration } from 'aurelia';
+import { CurrencyValueConverter } from '../src/resources/currency';
+import { FeatureFlags } from '../src/services/feature-flags';
+
+export const parameters = {
+  aurelia: {
+    register: [CurrencyValueConverter],
+    configureContainer: (container) => {
+      container.register(Registration.instance(FeatureFlags, { beta: true }));
+    },
+  },
+};
+```
+
+### 2) Mock a service per story
+
+```ts
+import { Registration } from 'aurelia';
+import { IWeatherService } from '../src/services/weather-service';
+
+export const WithMockedService = {
+  render: (args) =>
+    defineAureliaStory({
+      template: `<weather-widget location.bind="location"></weather-widget>`,
+      props: args,
+      items: [
+        Registration.instance(IWeatherService, {
+          getWeather: async () => ({ location: 'Seattle', condition: 'Sunny' }),
+        }),
+      ],
+    }),
+};
+```
+
+### 3) Force a clean DI container per story
+
+```ts
+export const CleanState = {
+  parameters: { forceRemount: true },
+  render: (args) =>
+    defineAureliaStory({
+      template: `<my-component value.bind="value"></my-component>`,
+      props: args,
+    }),
+};
+```
 
 ## Example Apps Inside This Repo
 
@@ -264,6 +424,25 @@ This repository publishes the Storybook framework itself. Helpful scripts:
 - `npm run test` – run the Jest suite (uses the JSDOM environment).
 
 While developing, you can link the package into one of the sample apps in `apps/` to manual-test Storybook changes end to end.
+
+## Releases & Changelog
+
+- Keep `CHANGELOG.md` updated for each release (use the **Unreleased** section while working).
+- Align example app versions with the root package before tagging:
+  - `npm run sync:versions`
+- Tag releases as `vX.Y.Z` so the publish workflow can run.
+
+Publish flow (automated via GitHub Actions):
+1. Update `package.json` version.
+2. Generate `CHANGELOG.md` from conventional commits: `npm run changelog`.
+3. Run `npm run sync:versions` and commit changes.
+4. Create tag `vX.Y.Z` and push it.
+
+## Troubleshooting
+
+- **AUR0153 duplicate element registration**: ensure the same component isn't registered multiple times within the same story/container.
+- **Args undefined during first render**: defensively handle optional args in components (e.g., fallbacks for arrays/strings).
+- **Rsbuild `loader.loadModule is not a function`**: avoid `ts-loader` in Rsbuild/Rspack builds; use the built-in Rsbuild TS handling.
 
 ## Contributing
 

@@ -16,16 +16,24 @@ export class StatCard {
   }
 
   get changeLabel() {
-    const rounded = Number(this.change).toFixed(1).replace(/\.0$/, '');
-    const sign = this.change > 0 ? '+' : '';
+    const numeric = typeof this.change === 'number' ? this.change : Number(this.change);
+    if (!Number.isFinite(numeric)) {
+      return '0%';
+    }
+    const rounded = numeric.toFixed(1).replace(/\.0$/, '');
+    const sign = numeric > 0 ? '+' : '';
     return `${sign}${rounded}%`;
   }
 
   get changeState(): TrendState {
-    if (this.change > 0) {
+    const numeric = typeof this.change === 'number' ? this.change : Number(this.change);
+    if (!Number.isFinite(numeric)) {
+      return 'neutral';
+    }
+    if (numeric > 0) {
       return 'positive';
     }
-    if (this.change < 0) {
+    if (numeric < 0) {
       return 'negative';
     }
     return 'neutral';

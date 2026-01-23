@@ -1,16 +1,22 @@
+import { defineAureliaStory } from '@aurelia/storybook';
 import { Registration } from 'aurelia';
 import { fn, userEvent, within } from 'storybook/test';
 import { WeatherWidget } from '../components/weather-widget';
 import { IWeatherService, WeatherService, WeatherSummary } from '../services/weather-service';
 
+type WeatherWidgetArgs = {
+  location: string;
+};
+
 const mockService: WeatherService = {
   async getWeather(location: string): Promise<WeatherSummary> {
+    const safeLocation = location ?? '';
     return {
-      location,
-      condition: location.includes('Berlin') ? 'Cloudy' : 'Sunny',
-      temperature: location.includes('Berlin') ? 16 : 24,
-      high: location.includes('Berlin') ? 18 : 27,
-      low: location.includes('Berlin') ? 11 : 19,
+      location: safeLocation,
+      condition: safeLocation.includes('Berlin') ? 'Cloudy' : 'Sunny',
+      temperature: safeLocation.includes('Berlin') ? 16 : 24,
+      high: safeLocation.includes('Berlin') ? 18 : 27,
+      low: safeLocation.includes('Berlin') ? 11 : 19,
     };
   },
 };
@@ -21,17 +27,16 @@ const meta = {
   parameters: {
     layout: 'centered',
   },
-  render: (args) => ({
-    template: `<weather-widget location.bind="location"></weather-widget>`,
-    props: args,
-    components: [WeatherWidget],
-    items: [Registration.instance(IWeatherService, mockService)],
-  }),
+  render: (args: WeatherWidgetArgs) =>
+    defineAureliaStory({
+      template: `<weather-widget location.bind="location"></weather-widget>`,
+      props: args,
+      components: [WeatherWidget],
+      items: [Registration.instance(IWeatherService, mockService)],
+    }),
 };
 
 export default meta;
-
-type Story = typeof meta;
 
 export const DefaultWeather = {
   args: {

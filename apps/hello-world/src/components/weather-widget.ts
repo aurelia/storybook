@@ -20,7 +20,8 @@ export class WeatherWidget {
     try {
       this.state = 'loading';
       this.error = '';
-      this.report = await this.service.getWeather(this.location);
+      const location = this.location ?? 'Seattle, WA';
+      this.report = await this.service.getWeather(location);
       this.state = 'ready';
     } catch (err) {
       this.state = 'error';
