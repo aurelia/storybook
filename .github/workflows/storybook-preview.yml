@@ -35,11 +35,14 @@ jobs:
       - name: Build package
         run: npm run build
 
+      - name: Pack local package
+        run: npm pack
+
       - name: Build Storybook (hello-world)
         working-directory: apps/hello-world
         run: |
           npm install
-          npm install --no-save ../..
+          npm install --no-save ../../aurelia-storybook-*.tgz
           npm run build-storybook
 
       - name: Configure Pages
