@@ -1,6 +1,6 @@
 {
   "name": "@aurelia/storybook",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "A Storybook plugin to render Aurelia 2 components using Vite, Webpack, or Rsbuild/Rspack",
   "type": "module",
   "main": "dist/index.js",
