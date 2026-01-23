@@ -27,9 +27,6 @@ jobs:
       - name: Build package
         run: npm run build
 
-      - name: Pack local package
-        run: npm pack
-
       - name: Build types
         run: npm run build:types
 
@@ -39,8 +36,8 @@ jobs:
       - name: Build hello-world (Vite)
         working-directory: apps/hello-world
         run: |
+          npm pkg set "devDependencies.@aurelia/storybook=file:../.."
           npm install
-          npm install --no-save ../../aurelia-storybook-*.tgz
           npx tsc --noEmit -p tsconfig.json
           npm run build
           npm run build-storybook
@@ -48,8 +45,8 @@ jobs:
       - name: Build hello-world-webpack
         working-directory: apps/hello-world-webpack
         run: |
+          npm pkg set "devDependencies.@aurelia/storybook=file:../.."
           npm install
-          npm install --no-save ../../aurelia-storybook-*.tgz
           npx tsc --noEmit -p tsconfig.json
           npm run build
           npm run build-storybook
@@ -57,8 +54,8 @@ jobs:
       - name: Build hello-world-rsbuild
         working-directory: apps/hello-world-rsbuild
         run: |
+          npm pkg set "devDependencies.@aurelia/storybook=file:../.."
           npm install
-          npm install --no-save ../../aurelia-storybook-*.tgz
           npx tsc --noEmit -p tsconfig.json
           npm run build
           npm run build-storybook

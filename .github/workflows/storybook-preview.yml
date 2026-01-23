@@ -35,14 +35,11 @@ jobs:
       - name: Build package
         run: npm run build
 
-      - name: Pack local package
-        run: npm pack
-
       - name: Build Storybook (hello-world)
         working-directory: apps/hello-world
         run: |
+          npm pkg set "devDependencies.@aurelia/storybook=file:../.."
           npm install
-          npm install --no-save ../../aurelia-storybook-*.tgz
           npm run build-storybook
 
       - name: Configure Pages
