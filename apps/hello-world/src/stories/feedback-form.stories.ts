@@ -1,5 +1,12 @@
+import { defineAureliaStory } from '@aurelia/storybook';
 import { fn, userEvent, within } from 'storybook/test';
 import { FeedbackForm } from '../components/feedback-form';
+
+type FeedbackFormArgs = {
+  topics: string[];
+  submitting?: boolean;
+  onSubmit?: (payload: unknown) => void;
+};
 
 const meta = {
   title: 'Dashboard/FeedbackForm',
@@ -7,18 +14,17 @@ const meta = {
   parameters: {
     layout: 'centered',
   },
-  render: (args) => ({
-    template: `<feedback-form topics.bind="topics"
-                              submitting.bind="submitting"
-                              on-submit.bind="onSubmit"></feedback-form>`,
-    props: args,
-    components: [FeedbackForm],
-  }),
+  render: (args: FeedbackFormArgs) =>
+    defineAureliaStory({
+      template: `<feedback-form topics.bind="topics"
+                                submitting.bind="submitting"
+                                on-submit.bind="onSubmit"></feedback-form>`,
+      props: args,
+      components: [FeedbackForm],
+    }),
 };
 
 export default meta;
-
-type Story = typeof meta;
 
 export const DefaultForm = {
   args: {

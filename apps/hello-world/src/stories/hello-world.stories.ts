@@ -1,12 +1,20 @@
+import { defineAureliaStory } from '@aurelia/storybook';
 import { HelloWorld } from '../hello-world';
 import { fn, userEvent, within } from 'storybook/test';
+
+type HelloWorldArgs = {
+  message?: string;
+  onIncrement?: () => void;
+};
 
 const meta = {
   title: 'Example/HelloWorld',
   component: HelloWorld,
-  render: () => ({
-    template: `<hello-world message.bind="message" on-increment.bind="onIncrement"></hello-world>`,
-  }),
+  render: (args: HelloWorldArgs) =>
+    defineAureliaStory({
+      template: `<hello-world message.bind="message" on-increment.bind="onIncrement"></hello-world>`,
+      props: args,
+    }),
   argTypes: {
     message: { control: 'text' },
     onIncrement: { action: 'increment' }
@@ -38,15 +46,18 @@ export const InteractiveHelloWorld = {
 };
 
 export const NoArgs = {
-  render: () => ({
-    template: `<hello-world></hello-world>`
-  })
+  render: () =>
+    defineAureliaStory({
+      template: `<hello-world></hello-world>`,
+    })
 };
 
 export const WithCustomTemplate = {
-  render: () => ({
-    template: `<hello-world message.bind="message">Click me!</hello-world>`
-  }),
+  render: (args: HelloWorldArgs) =>
+    defineAureliaStory({
+      template: `<hello-world message.bind="message">Click me!</hello-world>`,
+      props: args,
+    }),
   args: {
     message: 'This is a custom message'
   }

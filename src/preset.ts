@@ -1,7 +1,7 @@
 // src/preset.ts
 // Minimal preset for Storybook-Aurelia2
 
-import { getRules } from './webpack';
+import { getRules, getRsbuildRules } from './webpack';
 
 /**
  * Optionally adjust the Vite configuration.
@@ -29,6 +29,36 @@ export async function viteFinal(config: any): Promise<any> {
     return config;
 }
 
+async function loadMergeRsbuildConfig() {
+    try {
+        const { mergeRsbuildConfig } = await import('@rsbuild/core');
+        return mergeRsbuildConfig;
+    } catch (error: any) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(
+            `@aurelia/storybook: rsbuild support requires @rsbuild/core to be installed. Original error: ${message}`
+        );
+    }
+}
+
+/**
+ * Optionally adjust the Rsbuild configuration (Rspack-based).
+ */
+export async function rsbuildFinal(config: any): Promise<any> {
+    const mergeRsbuildConfig = await loadMergeRsbuildConfig();
+
+    return mergeRsbuildConfig(config, {
+        tools: {
+            rspack: (rspackConfig: any) => {
+                const moduleConfig = rspackConfig.module ?? (rspackConfig.module = {});
+                const rules = moduleConfig.rules ?? (moduleConfig.rules = []);
+                rules.push(...getRsbuildRules());
+                return rspackConfig;
+            }
+        }
+    });
+}
+
 /**
  * A function to configure webpack.
  * @param config
@@ -44,6 +74,6 @@ export async function webpackFinal(config: any): Promise<any> {
 }
 
 // Export a default for compatibility.
-export default { viteFinal, webpackFinal };
+export default { viteFinal, rsbuildFinal, webpackFinal };
 
 export const previewAnnotations = ['./preview.js'];

@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
+    "target": "ES2017",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "importHelpers": true,
+    "sourceMap": true
+  },
+  "include": [
+    "src",
+    "aurelia-sfc-plugin.js"
+  ],
+  "files": [
+    "src/resource.d.ts"
+  ]
+}

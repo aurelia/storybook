@@ -1,20 +1,46 @@
-import { STORY_CHANGED } from 'storybook/internal/core-events';
-import type { RenderContext, ArgsStoryFn } from 'storybook/internal/types';
-import type { AureliaRenderer } from './types';
+import type { RenderContext, ArgsStoryFn } from './storybook-types';
+import type {
+  AureliaRenderer,
+  AureliaStoryResult,
+  AureliaParameters,
+  AureliaStoryContext,
+} from './types';
 import Aurelia, { Constructable, CustomElement } from 'aurelia';
-
-interface AureliaStoryResult {
-  template: string;
-  components?: unknown[];
-  Component?: unknown;
-  container?: any;
-  items?: unknown[];
-  innerHtml?: string;
-  props?: Record<string, any>;
-}
 
 // Track Aurelia apps for cleanup
 const appMap = new Map<HTMLElement, any>();
+
+function mergeStoryProps(
+  parameters: { args?: Record<string, any> } | undefined,
+  storyArgs: Record<string, any> | undefined,
+  storyProps: Record<string, any> | undefined
+) {
+  return { ...parameters?.args, ...storyArgs, ...storyProps };
+}
+
+function getAureliaParameters(
+  storyContext?: AureliaStoryContext
+): AureliaParameters | undefined {
+  const parameters = storyContext?.parameters?.aurelia;
+  if (!parameters || typeof parameters !== 'object') {
+    return undefined;
+  }
+  return parameters as AureliaParameters;
+}
+
+function normalizeRegistrations(
+  parameters: AureliaParameters | undefined
+): unknown[] {
+  if (!parameters) {
+    return [];
+  }
+
+  const register = Array.isArray(parameters.register) ? parameters.register : [];
+  const components = Array.isArray(parameters.components) ? parameters.components : [];
+  const items = Array.isArray(parameters.items) ? parameters.items : [];
+
+  return [...register, ...components, ...items].filter(Boolean);
+}
 
 async function teardown(element: HTMLElement) {
   if (appMap.has(element)) {
@@ -30,11 +56,12 @@ export const render: ArgsStoryFn<AureliaRenderer> = (args, context) => {
   const { id, component: Component } = context;
   
   if (!Component) {
+    const label = context.title && context.name ? `${context.title} / ${context.name}` : id;
     throw new Error(
-      `Unable to render story ${id} as the component annotation is missing from the default export`
+      `Unable to render story ${label} as the component annotation is missing from the default export`
     );
   }
-  return { Component, props: args, template: '' };
+  return { Component, props: args };
 };
 
 export async function renderToCanvas(
@@ -74,9 +101,6 @@ export async function renderToCanvas(
   let app = appMap.get(rootElement);
   const story = storyFn() as AureliaStoryResult;
   
-  // Temporary debug logging
-  console.log(`[DEBUG] Story: ${name}, forceRemount: ${forceRemount}, hasExistingApp: ${!!app}, canvasId: ${canvasElement.className}`);
-
   if (!story) {
     showError({
       title: `Expecting an Aurelia component from the story: "${name}" of "${title}".`,
@@ -98,20 +122,21 @@ export async function renderToCanvas(
     // Clear container before mounting new app
     hostElement.innerHTML = '';
 
-    const mergedProps = { ...parameters?.args, ...args, ...story.props };
+    const mergedProps = mergeStoryProps(parameters, args, story.props);
 
     const aureliaApp = appBootstrapFn(
       story,
       mergedProps,
       hostElement,
-      component as Constructable
+      component as Constructable,
+      storyContext
     );
     await aureliaApp.start();
     appMap.set(rootElement, aureliaApp);
     app = aureliaApp;
   } else {
     // update existing app props
-    const mergedProps = { ...parameters?.args, ...args, ...story.props };
+    const mergedProps = mergeStoryProps(parameters, args, story.props);
     if (app?.root?.controller?.viewModel) {
       Object.assign(app.root.controller.viewModel, mergedProps);
     }
@@ -127,23 +152,59 @@ export function createAureliaApp(
   story: AureliaStoryResult,
   args: Record<string, any>,
   domElement: HTMLElement,
-  component?: Constructable
+  component?: Constructable,
+  storyContext?: AureliaStoryContext
 ) {
   const aurelia = new Aurelia(story.container);
+  const { container } = aurelia;
+  const aureliaParameters = getAureliaParameters(storyContext);
 
-  if (story.items?.length) {
-    aurelia.register(...story.items);
+  const registerIfNeeded = (resource: unknown) => {
+    if (!resource) {
+      return;
+    }
+
+    if (CustomElement.isType(resource)) {
+      const definition = CustomElement.getDefinition(resource);
+      if (container.has(definition.key, false)) {
+        return;
+      }
+    }
+
+    aurelia.register(resource);
+  };
+
+  const registerAll = (resources?: unknown[]) => {
+    if (!resources?.length) {
+      return;
+    }
+
+    for (const resource of resources) {
+      registerIfNeeded(resource);
+    }
+  };
+
+  if (aureliaParameters?.configureContainer && storyContext) {
+    aureliaParameters.configureContainer(container, storyContext);
   }
 
-  if (story.components?.length) {
-    aurelia.register(...story.components);
+  registerAll(normalizeRegistrations(aureliaParameters));
+  registerAll(story.items);
+
+  const storyComponents = (story.components ?? []).filter(Boolean);
+  const dedupedComponents = component
+    ? storyComponents.filter((entry) => entry !== component)
+    : storyComponents;
+
+  for (const entry of dedupedComponents) {
+    registerIfNeeded(entry);
   }
 
   let { template } = story;
 
   if (component) {
     template = template ?? createComponentTemplate(component, story.innerHtml);
-    aurelia.register(component);
+    registerIfNeeded(component);
   }
 
   const App = CustomElement.define(
@@ -157,6 +218,10 @@ export function createAureliaApp(
 
   const app = Object.assign(new App(), args);
 
+  if (aureliaParameters?.configure && storyContext) {
+    aureliaParameters.configure(aurelia, storyContext);
+  }
+
   return aurelia.app({
     host: domElement,
     component: app,
@@ -169,7 +234,10 @@ export function createComponentTemplate(
 ): string {
   const def = CustomElement.getDefinition(component);
 
-  return `<${def.name} ${Object.values(def.bindables)
+  const bindings = Object.values(def.bindables)
     .map((bindable) => `${bindable.attribute}.bind="${bindable.name}"`)
-    .join(' ')}>${innerHtml ?? ''}</${def.name}>`;
+    .join(' ');
+  const bindingAttributes = bindings ? ` ${bindings}` : '';
+
+  return `<${def.name}${bindingAttributes}>${innerHtml ?? ''}</${def.name}>`;
 }

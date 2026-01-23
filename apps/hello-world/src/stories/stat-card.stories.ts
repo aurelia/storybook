@@ -1,5 +1,16 @@
+import { defineAureliaStory } from '@aurelia/storybook';
 import { fn, userEvent, within } from 'storybook/test';
 import { StatCard } from '../components/stat-card';
+
+type StatCardArgs = {
+  title: string;
+  value: number | string;
+  unit?: string;
+  change?: number;
+  changeCopy?: string;
+  description?: string;
+  onRefresh?: () => void;
+};
 
 const meta = {
   title: 'Dashboard/StatCard',
@@ -7,22 +18,21 @@ const meta = {
   parameters: {
     layout: 'centered',
   },
-  render: (args) => ({
-    components: [StatCard],
-    template: `<stat-card title.bind="title"
-                          value.bind="value"
-                          unit.bind="unit"
-                          change.bind="change"
-                          change-copy.bind="changeCopy"
-                          description.bind="description"
-                          on-refresh.bind="onRefresh"></stat-card>`,
-    props: args,
-  }),
+  render: (args: StatCardArgs) =>
+    defineAureliaStory({
+      components: [StatCard],
+      template: `<stat-card title.bind="title"
+                            value.bind="value"
+                            unit.bind="unit"
+                            change.bind="change"
+                            change-copy.bind="changeCopy"
+                            description.bind="description"
+                            on-refresh.bind="onRefresh"></stat-card>`,
+      props: args,
+    }),
 };
 
 export default meta;
-
-type Story = typeof meta;
 
 export const DefaultCard = {
   args: {

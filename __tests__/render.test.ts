@@ -1,8 +1,7 @@
-import { STORY_CHANGED } from 'storybook/internal/core-events';
 import {
   render,
   renderToCanvas,
-  bootstrapAureliaApp,
+  createAureliaApp,
   createComponentTemplate,
 } from '../src/preview/render';
 
@@ -24,9 +23,12 @@ jest.mock('aurelia', () => {
 describe('render', () => {
   it('throws an error when no component is provided', () => {
     expect(() =>
-      render({}, { id: 'story-1', component: undefined as any } as any)
-    ).toThrowError(
-      'Unable to render story story-1 as the component annotation is missing from the default export'
+      render(
+        {},
+        { id: 'story-1', title: 'Test', name: 'Story', component: undefined as any } as any
+      )
+    ).toThrow(
+      'Unable to render story Test / Story as the component annotation is missing from the default export'
     );
   });
 
@@ -34,18 +36,16 @@ describe('render', () => {
     const DummyComponent = () => {};
     const args = { foo: 'bar' };
     const result = render(args, { id: 'story-1', component: DummyComponent as any } as any);
-    expect(result).toEqual({ Component: DummyComponent, props: args, template: '' });
+    expect(result).toEqual({ Component: DummyComponent, props: args });
   });
 });
 
 describe('renderToCanvas', () => {
   let canvas: HTMLElement;
-  let dummyChannel: { on: jest.Mock; off: jest.Mock };
   const DummyComponent = class {};
 
   beforeEach(() => {
     canvas = document.createElement('div');
-    dummyChannel = { on: jest.fn(), off: jest.fn() } as any;
   });
 
   it('calls showError when the story function returns a falsy value', async () => {
@@ -62,8 +62,6 @@ describe('renderToCanvas', () => {
         parameters: {},
         component: DummyComponent as any,
         args: {},
-        viewMode: 'story',
-        channel: dummyChannel,
       },
       forceRemount: false,
     } as any;
@@ -84,9 +82,8 @@ describe('renderToCanvas', () => {
     const showError = jest.fn() as any;
     const showMain = jest.fn() as any;
 
-    // Spy on bootstrapAureliaApp to simulate app creation.
     const bootstrapSpy = jest
-      .spyOn(require('../src/preview/render'), 'bootstrapAureliaApp')
+      .spyOn(require('../src/preview/render'), 'createAureliaApp')
       .mockReturnValue(fakeAurelia);
 
     const context = {
@@ -99,23 +96,17 @@ describe('renderToCanvas', () => {
         parameters: { args: { param: 'foo' } },
         component: DummyComponent as any,
         args: { test: 'bar' },
-        viewMode: 'story',
-        channel: dummyChannel,
       },
       forceRemount: false,
     } as any;
 
-    const cleanup = await renderToCanvas(context, canvas, bootstrapAureliaApp);
+    const cleanup = await renderToCanvas(context, canvas, createAureliaApp);
     expect(showError).not.toHaveBeenCalled();
     expect(showMain).toHaveBeenCalled();
     expect(bootstrapSpy).toHaveBeenCalled();
 
-    // Simulate cleanup (which should remove the STORY_CHANGED listener)
     await cleanup();
-    expect(dummyChannel.off).toHaveBeenCalledWith(
-      STORY_CHANGED,
-      expect.any(Function)
-    );
+    expect(fakeAurelia.stop).toHaveBeenCalled();
     bootstrapSpy.mockRestore();
   });
 
@@ -134,7 +125,7 @@ describe('renderToCanvas', () => {
     const showMain = jest.fn() as any;
 
     const bootstrapSpy = jest
-      .spyOn(require('../src/preview/render'), 'bootstrapAureliaApp')
+      .spyOn(require('../src/preview/render'), 'createAureliaApp')
       .mockReturnValue(fakeAurelia);
 
     // First render: bootstrap the app.
@@ -148,12 +139,10 @@ describe('renderToCanvas', () => {
         parameters: { args: { param: 'foo' } },
         component: DummyComponent as any,
         args: { test: 'bar' },
-        viewMode: 'story',
-        channel: dummyChannel,
       },
       forceRemount: false,
     } as any;
-    await renderToCanvas(context, canvas, bootstrapAureliaApp);
+    await renderToCanvas(context, canvas, createAureliaApp);
     expect(bootstrapSpy).toHaveBeenCalledTimes(1);
 
     // Second render with new args; should update viewModel instead of re-bootstrap.
@@ -167,9 +156,9 @@ describe('renderToCanvas', () => {
         args: { test: 'qux' },
       },
     } as any;
-    await renderToCanvas(newContext, canvas, bootstrapAureliaApp);
+    await renderToCanvas(newContext, canvas, createAureliaApp);
     expect(bootstrapSpy).toHaveBeenCalledTimes(1);
-    expect(fakeViewModel).toEqual({ param: 'baz', test: 'qux' });
+    expect(fakeViewModel).toEqual({ param: 'baz', test: 'updated' });
     bootstrapSpy.mockRestore();
   });
 });

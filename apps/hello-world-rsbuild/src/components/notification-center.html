@@ -1,0 +1,119 @@
+<style>
+  .notification-center {
+    width: 420px;
+    border-radius: 20px;
+    background: #0f172a;
+    color: #f8fafc;
+    padding: 20px 24px;
+    box-shadow: 0 25px 50px rgba(15, 23, 42, 0.45);
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  .notification-center__header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+
+  .notification-center__header h2 {
+    margin: 0;
+    font-size: 20px;
+  }
+
+  .notification-center__count {
+    font-size: 13px;
+    opacity: 0.7;
+    align-self: center;
+  }
+
+  .notification-center__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .notification-center__item {
+    display: flex;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: rgba(148, 163, 184, 0.12);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    gap: 12px;
+  }
+
+  .notification-center__item strong {
+    display: block;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  .notification-center__item p {
+    margin: 0 0 6px;
+    font-size: 14px;
+    opacity: 0.9;
+  }
+
+  .notification-center__item small {
+    font-size: 12px;
+    opacity: 0.6;
+  }
+
+  .notification-center__item button {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: inherit;
+    border-radius: 999px;
+    padding: 4px 12px;
+    height: fit-content;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  .notification-center__item button:hover,
+  .notification-center__item button:focus-visible {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .notification-center__item.success {
+    border-color: rgba(45, 212, 191, 0.4);
+  }
+
+  .notification-center__item.warning {
+    border-color: rgba(249, 115, 22, 0.4);
+  }
+
+  .notification-center__item.error {
+    border-color: rgba(239, 68, 68, 0.4);
+  }
+
+  .notification-center__empty {
+    text-align: center;
+    padding: 16px;
+    background: rgba(148, 163, 184, 0.1);
+    border-radius: 12px;
+    font-size: 14px;
+  }
+</style>
+<section class="notification-center">
+  <header class="notification-center__header">
+    <h2>Notifications</h2>
+    <span class="notification-center__count">${notifications.length} total</span>
+  </header>
+  <ul class="notification-center__list">
+    <li repeat.for="note of visibleNotifications" class="notification-center__item ${note.level}">
+      <div>
+        <strong>${note.title}</strong>
+        <p>${note.message}</p>
+        <small if.bind="showTimestamp">${note.timestamp}</small>
+      </div>
+      <button type="button" click.trigger="dismiss(note)">Dismiss</button>
+    </li>
+    <li if.bind="visibleNotifications.length === 0" class="notification-center__empty">
+      You're all caught up!
+    </li>
+  </ul>
+</section>

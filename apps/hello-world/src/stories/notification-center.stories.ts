@@ -1,5 +1,13 @@
+import { defineAureliaStory } from '@aurelia/storybook';
 import { fn, userEvent, within } from 'storybook/test';
 import { NotificationCenter, NotificationItem } from '../components/notification-center';
+
+type NotificationCenterArgs = {
+  notifications: NotificationItem[];
+  maxVisible?: number;
+  showTimestamp?: boolean;
+  onDismiss?: (item: NotificationItem) => void;
+};
 
 const baseNotifications: NotificationItem[] = [
   {
@@ -35,19 +43,18 @@ const baseNotifications: NotificationItem[] = [
 const meta = {
   title: 'Dashboard/NotificationCenter',
   component: NotificationCenter,
-  render: (args) => ({
-    template: `<notification-center notifications.bind="notifications"
-                                     max-visible.bind="maxVisible"
-                                     on-dismiss.bind="onDismiss"
-                                     show-timestamp.bind="showTimestamp"></notification-center>`,
-    props: args,
-    components: [NotificationCenter],
-  }),
+  render: (args: NotificationCenterArgs) =>
+    defineAureliaStory({
+      template: `<notification-center notifications.bind="notifications"
+                                       max-visible.bind="maxVisible"
+                                       on-dismiss.bind="onDismiss"
+                                       show-timestamp.bind="showTimestamp"></notification-center>`,
+      props: args,
+      components: [NotificationCenter],
+    }),
 };
 
 export default meta;
-
-type Story = typeof meta;
 
 export const DefaultNotifications = {
   args: {

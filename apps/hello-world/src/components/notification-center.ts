@@ -17,11 +17,11 @@ export class NotificationCenter {
   @bindable() onDismiss?: (notification: NotificationItem) => void;
 
   get visibleNotifications() {
-    return this.notifications.slice(0, this.maxVisible);
+    return (this.notifications ?? []).slice(0, this.maxVisible);
   }
 
   dismiss(notification: NotificationItem) {
-    this.notifications = this.notifications.filter((note) => note.id !== notification.id);
+    this.notifications = (this.notifications ?? []).filter((note) => note.id !== notification.id);
     this.onDismiss?.(notification);
   }
 }

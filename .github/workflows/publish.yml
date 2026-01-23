@@ -1,0 +1,69 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Verify versions aligned
+        run: npm run sync:versions:check
+
+      - name: Verify tag matches package version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "Tag ($TAG) does not match package.json version ($VERSION)"
+            exit 1
+          fi
+
+      - name: Build package
+        run: npm run build
+
+      - name: Build types
+        run: npm run build:types
+
+      - name: Test package
+        run: npm test
+
+      - name: Verify changelog exists
+        run: |
+          if [ ! -s CHANGELOG.md ]; then
+            echo "CHANGELOG.md is empty. Run npm run changelog before tagging."
+            exit 1
+          fi
+
+      - name: Verify changelog version matches package
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          CHANGELOG_VERSION="$(node -e "const fs=require('fs');const m=fs.readFileSync('CHANGELOG.md','utf8').match(/## \\[(\\d+\\.\\d+\\.\\d+(?:-[^\\]]+)?)\\]/);console.log(m?m[1]:'')")"
+          if [ "$VERSION" != "$CHANGELOG_VERSION" ]; then
+            echo "CHANGELOG.md latest version ($CHANGELOG_VERSION) does not match package.json ($VERSION)"
+            exit 1
+          fi
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

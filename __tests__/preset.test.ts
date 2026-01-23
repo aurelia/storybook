@@ -1,11 +1,28 @@
-import { webpackFinal, viteFinal } from '../src/preset';
-import { getRules } from '../src/webpack';
+import { rsbuildFinal, webpackFinal, viteFinal } from '../src/preset';
+import { getRsbuildRules, getRules } from '../src/webpack';
 
 jest.mock('../src/webpack', () => ({
   getRules: jest.fn(() => [
     { test: /\.ts$/, use: 'ts-loader' },
     { test: /\.html$/, use: 'html-loader' },
   ]),
+  getRsbuildRules: jest.fn(() => [
+    { test: /\.ts$/, use: '@aurelia/webpack-loader' },
+    { test: /\.html$/, use: '@aurelia/webpack-loader' },
+  ]),
+}));
+
+const mergeRsbuildConfig = jest.fn((base, extra) => ({
+  ...base,
+  ...extra,
+  tools: {
+    ...base?.tools,
+    ...extra?.tools,
+  },
+}));
+
+jest.mock('@rsbuild/core', () => ({
+  mergeRsbuildConfig,
 }));
 
 describe('preset', () => {
@@ -46,4 +63,16 @@ describe('preset', () => {
       expect(result).toBe(config);
     });
   });
-}); 
+
+  describe('rsbuildFinal', () => {
+    it('should merge rsbuild config and add Aurelia rules', async () => {
+      const config = { tools: {} };
+      const result = await rsbuildFinal(config);
+      expect(mergeRsbuildConfig).toHaveBeenCalledWith(config, expect.any(Object));
+
+      const rspackConfig = { module: { rules: [] as any[] } };
+      result.tools.rspack(rspackConfig);
+      expect(rspackConfig.module.rules).toEqual(getRsbuildRules());
+    });
+  });
+});
