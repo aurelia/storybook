@@ -19,7 +19,7 @@ jobs:
           cache: npm
 
       - name: Install root deps
-        run: npm ci
+        run: npm install
 
       - name: Verify example versions are aligned
         run: npm run sync:versions:check
@@ -36,7 +36,7 @@ jobs:
       - name: Build hello-world (Vite)
         working-directory: apps/hello-world
         run: |
-          npm ci
+          npm install
           npm install --no-save ../..
           npx tsc --noEmit -p tsconfig.json
           npm run build
@@ -45,7 +45,7 @@ jobs:
       - name: Build hello-world-webpack
         working-directory: apps/hello-world-webpack
         run: |
-          npm ci
+          npm install
           npm install --no-save ../..
           npx tsc --noEmit -p tsconfig.json
           npm run build
@@ -54,7 +54,7 @@ jobs:
       - name: Build hello-world-rsbuild
         working-directory: apps/hello-world-rsbuild
         run: |
-          npm ci
+          npm install
           npm install --no-save ../..
           npx tsc --noEmit -p tsconfig.json
           npm run build

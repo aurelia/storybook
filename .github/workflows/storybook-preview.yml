@@ -30,7 +30,7 @@ jobs:
           cache: npm
 
       - name: Install root deps
-        run: npm ci
+        run: npm install
 
       - name: Build package
         run: npm run build
@@ -38,7 +38,7 @@ jobs:
       - name: Build Storybook (hello-world)
         working-directory: apps/hello-world
         run: |
-          npm ci
+          npm install
           npm install --no-save ../..
           npm run build-storybook
 
