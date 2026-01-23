@@ -1,7 +1,7 @@
 {
   "name": "apptasks-video",
   "description": "An Aurelia 2 client application.",
-  "version": "0.1.0",
+  "version": "2.2.1",
   "repository": {
     "type": "git",
     "url": "???"
@@ -14,7 +14,7 @@
     "aurelia": "^2.0.0-beta.25"
   },
   "devDependencies": {
-    "@aurelia/storybook": "^2.0.0",
+    "@aurelia/storybook": "^2.2.1",
     "@aurelia/testing": "^2.0.0-beta.25",
     "@aurelia/vite-plugin": "^2.0.0-beta.25",
     "@storybook/builder-vite": "^10.2.0",
