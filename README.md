@@ -1,23 +1,23 @@
 # @aurelia/storybook
 
-> **Note:** Storybook support is still early-stage. Expect a few rough edges while Aurelia 2 finishes its beta cycle, and please report anything that feels off.
+> **Note:** Storybook support is still release-candidate stage. Please report anything that feels off while Aurelia 2 and Storybook 10 continue to settle.
 
-`@aurelia/storybook` is the glue between Aurelia 2 components and Storybook 10. It wires Aurelia's `enhance()` API into Storybook's rendering pipeline so you can preview, test, and document your components with either the Vite or Webpack builders.
+`@aurelia/storybook` is the glue between Aurelia 2 components and Storybook 10. It wires an Aurelia app into Storybook's rendering pipeline so you can preview, test, and document your components with Vite, Webpack, or Rsbuild/Rspack.
 
 ## Compatibility at a Glance
 
 | Item | Supported versions | Notes |
 | --- | --- | --- |
-| Storybook | 10.x (ESM) | Tested with 10.0.5+; works with `storybook dev`/`storybook build` commands. |
-| Aurelia | 2.0.0-beta.25+ | Uses Aurelia's `enhance()` APIs under the hood. |
-| Bundlers | `@storybook/builder-vite` (Vite 5) · `@storybook/builder-webpack5` · `storybook-builder-rsbuild` (Rsbuild/Rspack) | Pick whichever matches your app; they share the same Aurelia preview runtime. |
+| Storybook | 10.x (ESM) | Tested with 10.4.x; works with `storybook dev`/`storybook build` commands. |
+| Aurelia | 2.0.0-rc.1+ | Uses Aurelia's app APIs under the hood. |
+| Bundlers | `@storybook/builder-vite` (Vite 5-8) · `@storybook/builder-webpack5` · `storybook-builder-rsbuild` (Rsbuild/Rspack) | Pick whichever matches your app; they share the same Aurelia preview runtime. |
 | Node.js | ≥ 20.19.0 or ≥ 22.12.0 | Matches the engines field in `package.json` and Storybook 10's baseline.
 
 ## Requirements
 
-- An Aurelia 2 application (TypeScript or JavaScript) already set up with either Vite or Webpack.
+- An Aurelia 2 application (TypeScript or JavaScript) already set up with Vite, Webpack, or Rsbuild/Rspack.
 - Storybook 10.x installed in the project. (Run `npx storybook@latest init` if you are starting fresh.)
-- The peer dependencies listed in [`package.json`](package.json) that align with the Aurelia 2 beta train you are targeting.
+- The peer dependencies listed in [`package.json`](package.json) that align with the Aurelia 2 release-candidate train you are targeting.
 
 ## Installation
 
@@ -45,7 +45,7 @@ Add whichever addons you need (`@storybook/addon-links`, `@storybook/addon-actio
 
    const config: StorybookConfig & { viteFinal?: (config: InlineConfig) => InlineConfig | Promise<InlineConfig> } = {
      stories: ['../src/stories/**/*.stories.@(ts|tsx|js|jsx|mdx)'],
-     addons: ['@storybook/addon-links'],
+     addons: [],
      framework: {
        name: '@aurelia/storybook',
        options: {},
@@ -54,7 +54,7 @@ Add whichever addons you need (`@storybook/addon-links`, `@storybook/addon-actio
        builder: '@storybook/builder-vite',
      },
      viteFinal: async (viteConfig) => {
-       // Ensure problematic Aurelia deps are excluded from pre-bundling.
+       // Optional: extend this when your app needs extra Vite config.
        viteConfig.optimizeDeps = viteConfig.optimizeDeps ?? {};
        viteConfig.optimizeDeps.exclude = Array.from(new Set([...(viteConfig.optimizeDeps.exclude ?? []), '@aurelia/runtime-html']));
 
@@ -69,8 +69,7 @@ Add whichever addons you need (`@storybook/addon-links`, `@storybook/addon-actio
    export default config;
    ```
 
-   - Excluding `@aurelia/runtime-html` keeps Vite from trying to pre-bundle Aurelia's DOM runtime, which is already ESM friendly.
-   - The `define` shim avoids `process is not defined` errors when Storybook code (or Aurelia plugins) look for `process.env.NODE_ENV` in the preview iframe.
+   The Aurelia preset already excludes `@aurelia/runtime-html` from pre-bundling and defines `process.env.NODE_ENV`; keep a `viteFinal` hook only when your app needs to merge additional Vite settings.
 
 3. **Create `.storybook/preview.ts`:**
 
@@ -102,7 +101,7 @@ Add whichever addons you need (`@storybook/addon-links`, `@storybook/addon-actio
 
    const config: StorybookConfig = {
      stories: ['../src/**/*.stories.@(ts|tsx|js|jsx|mdx)'],
-     addons: ['@storybook/addon-links'],
+     addons: [],
      framework: {
        name: '@aurelia/storybook',
        options: {},
@@ -131,7 +130,7 @@ Add whichever addons you need (`@storybook/addon-links`, `@storybook/addon-actio
 
    const config: StorybookConfig = {
      stories: ['../src/**/*.stories.@(ts|tsx|js|jsx|mdx)'],
-     addons: ['@storybook/addon-links'],
+     addons: [],
      framework: {
        name: '@aurelia/storybook',
        options: {},
@@ -144,7 +143,7 @@ Add whichever addons you need (`@storybook/addon-links`, `@storybook/addon-actio
    export default config;
    ```
 
-   The Aurelia preset injects the `ts-loader` + `@aurelia/webpack-loader` rules via `rsbuildFinal`,
+   The Aurelia preset injects `@aurelia/webpack-loader` via `rsbuildFinal`,
    so most projects do not need extra Rsbuild configuration. If you do, add your own `rsbuildFinal`
    and merge with `@rsbuild/core`'s `mergeRsbuildConfig`.
 
@@ -384,6 +383,7 @@ export const CleanState = {
 
 - `apps/hello-world` – Vite-based Aurelia starter that consumes `@aurelia/storybook`.
 - `apps/hello-world-webpack` – Equivalent Webpack example.
+- `apps/hello-world-rsbuild` – Rsbuild/Rspack example for projects using `storybook-builder-rsbuild`.
 
 To try them out:
 
@@ -393,6 +393,10 @@ npm install
 npm run storybook
 
 cd ../hello-world-webpack
+npm install
+npm run storybook
+
+cd ../hello-world-rsbuild
 npm install
 npm run storybook
 ```

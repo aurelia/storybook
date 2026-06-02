@@ -7,6 +7,7 @@ const rootPath = path.resolve(__dirname, '..');
 const rootPkgPath = path.join(rootPath, 'package.json');
 const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, 'utf8'));
 const version = rootPkg.version;
+const desiredStorybookDependency = `^${version}`;
 
 const exampleDirs = [
   'apps/hello-world',
@@ -15,6 +16,45 @@ const exampleDirs = [
 ];
 
 let failed = false;
+
+function markOutOfSync(message) {
+  if (checkOnly) {
+    console.error(message);
+    failed = true;
+  }
+}
+
+function verifyPackageLock(dir, pkg) {
+  if (!checkOnly) {
+    return;
+  }
+
+  const lockPath = path.join(rootPath, dir, 'package-lock.json');
+  if (!fs.existsSync(lockPath)) {
+    return;
+  }
+
+  const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+  const rootPackage = lock.packages?.[''];
+
+  if (!rootPackage) {
+    markOutOfSync(`${dir}/package-lock.json is missing root package metadata.`);
+    return;
+  }
+
+  if (rootPackage.version !== pkg.version) {
+    markOutOfSync(
+      `${dir}/package-lock.json version (${rootPackage.version}) does not match package.json (${pkg.version}).`
+    );
+  }
+
+  const lockedStorybookDependency = rootPackage.devDependencies?.['@aurelia/storybook'];
+  if (lockedStorybookDependency && lockedStorybookDependency !== desiredStorybookDependency) {
+    markOutOfSync(
+      `${dir}/package-lock.json uses @aurelia/storybook ${lockedStorybookDependency}; expected ${desiredStorybookDependency}.`
+    );
+  }
+}
 
 for (const dir of exampleDirs) {
   const pkgPath = path.join(rootPath, dir, 'package.json');
@@ -32,7 +72,7 @@ for (const dir of exampleDirs) {
 
   for (const depKey of ['dependencies', 'devDependencies', 'peerDependencies']) {
     if (pkg[depKey] && pkg[depKey]['@aurelia/storybook']) {
-      const desired = `^${version}`;
+      const desired = desiredStorybookDependency;
       if (pkg[depKey]['@aurelia/storybook'] !== desired) {
         if (checkOnly) {
           failed = true;
@@ -43,6 +83,8 @@ for (const dir of exampleDirs) {
       }
     }
   }
+
+  verifyPackageLock(dir, pkg);
 
   if (!checkOnly && changed) {
     fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');

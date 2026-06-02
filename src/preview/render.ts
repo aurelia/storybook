@@ -7,8 +7,12 @@ import type {
 } from './types';
 import Aurelia, { Constructable, CustomElement } from 'aurelia';
 
-// Track Aurelia apps for cleanup
-const appMap = new Map<HTMLElement, any>();
+interface MountedAureliaApp {
+  id?: string;
+  app: any;
+}
+
+const appMap = new Map<HTMLElement, MountedAureliaApp>();
 
 function mergeStoryProps(
   parameters: { args?: Record<string, any> } | undefined,
@@ -42,13 +46,20 @@ function normalizeRegistrations(
   return [...register, ...components, ...items].filter(Boolean);
 }
 
-async function teardown(element: HTMLElement) {
-  if (appMap.has(element)) {
-    const app = appMap.get(element);
-    if (app) {
-      await app.stop();
-      appMap.delete(element);
-    }
+async function teardown(element: HTMLElement, expectedApp?: any) {
+  const mounted = appMap.get(element);
+  if (!mounted) {
+    return;
+  }
+
+  if (expectedApp && mounted.app !== expectedApp) {
+    return;
+  }
+
+  appMap.delete(element);
+
+  if (typeof mounted.app?.stop === 'function') {
+    await mounted.app.stop();
   }
 }
 
@@ -97,8 +108,10 @@ export async function renderToCanvas(
   // All app instances are now tracked by the *root* element, ensuring we only ever have one per story iframe
   const appBootstrapFn = bootstrapAppFn ?? createAureliaApp;
   const { parameters, component, args } = storyContext;
+  const storyId = storyContext.id ?? `${title}--${name}`;
   
-  let app = appMap.get(rootElement);
+  const mounted = appMap.get(rootElement);
+  let app = mounted?.app;
   const story = storyFn() as AureliaStoryResult;
   
   if (!story) {
@@ -112,13 +125,30 @@ export async function renderToCanvas(
     return () => {};
   }
 
+  if (!component && !story.template) {
+    showError({
+      title: `Expecting a template or component from the story: "${name}" of "${title}".`,
+      description: `
+        Provide a component on the default export or return "{ template: '<custom-component></custom-component>' }" from the story.
+      `,
+    });
+    return () => {};
+  }
+
   showMain();
 
-  if (!app || forceRemount) {
+  const shouldRemount = !app || forceRemount || mounted?.id !== storyId;
+
+  if (shouldRemount) {
     if (forceRemount && app) {
-      await teardown(rootElement);
+      await teardown(rootElement, app);
       app = undefined;
     }
+    if (mounted?.id !== storyId && app) {
+      await teardown(rootElement, app);
+      app = undefined;
+    }
+
     // Clear container before mounting new app
     hostElement.innerHTML = '';
 
@@ -132,7 +162,7 @@ export async function renderToCanvas(
       storyContext
     );
     await aureliaApp.start();
-    appMap.set(rootElement, aureliaApp);
+    appMap.set(rootElement, { id: storyId, app: aureliaApp });
     app = aureliaApp;
   } else {
     // update existing app props
@@ -143,8 +173,9 @@ export async function renderToCanvas(
   }
 
   // Return cleanup fn
+  const appForCleanup = app;
   return async () => {
-    await teardown(rootElement);
+    await teardown(rootElement, appForCleanup);
   };
 }
 
@@ -234,7 +265,7 @@ export function createComponentTemplate(
 ): string {
   const def = CustomElement.getDefinition(component);
 
-  const bindings = Object.values(def.bindables)
+  const bindings = Object.values(def.bindables ?? {})
     .map((bindable) => `${bindable.attribute}.bind="${bindable.name}"`)
     .join(' ');
   const bindingAttributes = bindings ? ` ${bindings}` : '';

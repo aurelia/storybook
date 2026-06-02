@@ -82,9 +82,7 @@ describe('renderToCanvas', () => {
     const showError = jest.fn() as any;
     const showMain = jest.fn() as any;
 
-    const bootstrapSpy = jest
-      .spyOn(require('../src/preview/render'), 'createAureliaApp')
-      .mockReturnValue(fakeAurelia);
+    const bootstrapSpy = jest.fn(() => fakeAurelia);
 
     const context = {
       storyFn,
@@ -100,14 +98,13 @@ describe('renderToCanvas', () => {
       forceRemount: false,
     } as any;
 
-    const cleanup = await renderToCanvas(context, canvas, createAureliaApp);
+    const cleanup = await renderToCanvas(context, canvas, bootstrapSpy as any);
     expect(showError).not.toHaveBeenCalled();
     expect(showMain).toHaveBeenCalled();
     expect(bootstrapSpy).toHaveBeenCalled();
 
     await cleanup();
     expect(fakeAurelia.stop).toHaveBeenCalled();
-    bootstrapSpy.mockRestore();
   });
 
   it('updates the existing app viewModel when re-rendering without forceRemount', async () => {
@@ -124,9 +121,7 @@ describe('renderToCanvas', () => {
     const showError = jest.fn() as any;
     const showMain = jest.fn() as any;
 
-    const bootstrapSpy = jest
-      .spyOn(require('../src/preview/render'), 'createAureliaApp')
-      .mockReturnValue(fakeAurelia);
+    const bootstrapSpy = jest.fn(() => fakeAurelia);
 
     // First render: bootstrap the app.
     const context = {
@@ -142,7 +137,7 @@ describe('renderToCanvas', () => {
       },
       forceRemount: false,
     } as any;
-    await renderToCanvas(context, canvas, createAureliaApp);
+    await renderToCanvas(context, canvas, bootstrapSpy as any);
     expect(bootstrapSpy).toHaveBeenCalledTimes(1);
 
     // Second render with new args; should update viewModel instead of re-bootstrap.
@@ -156,10 +151,141 @@ describe('renderToCanvas', () => {
         args: { test: 'qux' },
       },
     } as any;
-    await renderToCanvas(newContext, canvas, createAureliaApp);
+    await renderToCanvas(newContext, canvas, bootstrapSpy as any);
     expect(bootstrapSpy).toHaveBeenCalledTimes(1);
     expect(fakeViewModel).toEqual({ param: 'baz', test: 'updated' });
-    bootstrapSpy.mockRestore();
+  });
+
+  it('remounts when Storybook renders a different story id in the same canvas', async () => {
+    const firstApp = {
+      start: jest.fn().mockResolvedValue(undefined),
+      stop: jest.fn().mockResolvedValue(undefined),
+      root: { controller: { viewModel: {} } },
+    } as any;
+    const secondApp = {
+      start: jest.fn().mockResolvedValue(undefined),
+      stop: jest.fn().mockResolvedValue(undefined),
+      root: { controller: { viewModel: {} } },
+    } as any;
+    const story = { template: '<div></div>' } as any;
+    const storyFn = jest.fn(() => story) as any;
+    const showError = jest.fn() as any;
+    const showMain = jest.fn() as any;
+    const bootstrapSpy = jest.fn()
+      .mockReturnValueOnce(firstApp)
+      .mockReturnValueOnce(secondApp);
+    const context = {
+      storyFn,
+      title: 'Title',
+      name: 'Name',
+      showMain,
+      showError,
+      storyContext: {
+        id: 'first',
+        parameters: {},
+        component: DummyComponent as any,
+        args: {},
+      },
+      forceRemount: false,
+    } as any;
+
+    await renderToCanvas(context, canvas, bootstrapSpy as any);
+    await renderToCanvas(
+      {
+        ...context,
+        storyContext: {
+          ...context.storyContext,
+          id: 'second',
+        },
+      } as any,
+      canvas,
+      bootstrapSpy as any
+    );
+
+    expect(firstApp.stop).toHaveBeenCalledTimes(1);
+    expect(secondApp.start).toHaveBeenCalledTimes(1);
+    expect(bootstrapSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not let stale cleanup stop a newer app', async () => {
+    const firstApp = {
+      start: jest.fn().mockResolvedValue(undefined),
+      stop: jest.fn().mockResolvedValue(undefined),
+      root: { controller: { viewModel: {} } },
+    } as any;
+    const secondApp = {
+      start: jest.fn().mockResolvedValue(undefined),
+      stop: jest.fn().mockResolvedValue(undefined),
+      root: { controller: { viewModel: {} } },
+    } as any;
+    const story = { template: '<div></div>' } as any;
+    const storyFn = jest.fn(() => story) as any;
+    const showError = jest.fn() as any;
+    const showMain = jest.fn() as any;
+    const bootstrapSpy = jest.fn()
+      .mockReturnValueOnce(firstApp)
+      .mockReturnValueOnce(secondApp);
+    const context = {
+      storyFn,
+      title: 'Title',
+      name: 'Name',
+      showMain,
+      showError,
+      storyContext: {
+        id: 'first-cleanup',
+        parameters: {},
+        component: DummyComponent as any,
+        args: {},
+      },
+      forceRemount: false,
+    } as any;
+
+    const firstCleanup = await renderToCanvas(context, canvas, bootstrapSpy as any);
+    await renderToCanvas(
+      {
+        ...context,
+        storyContext: {
+          ...context.storyContext,
+          id: 'second-cleanup',
+        },
+      } as any,
+      canvas,
+      bootstrapSpy as any
+    );
+    await firstCleanup();
+
+    expect(firstApp.stop).toHaveBeenCalledTimes(1);
+    expect(secondApp.stop).not.toHaveBeenCalled();
+  });
+
+  it('shows an error when a custom story has neither template nor component', async () => {
+    const storyFn = jest.fn(() => ({})) as any;
+    const showError = jest.fn() as any;
+    const showMain = jest.fn() as any;
+    const cleanup = await renderToCanvas(
+      {
+        storyFn,
+        title: 'Title',
+        name: 'Name',
+        showMain,
+        showError,
+        storyContext: {
+          parameters: {},
+          component: undefined,
+          args: {},
+        },
+        forceRemount: false,
+      } as any,
+      canvas
+    );
+
+    expect(showError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Expecting a template or component from the story: "Name" of "Title".',
+      })
+    );
+    expect(showMain).not.toHaveBeenCalled();
+    expect(typeof cleanup).toBe('function');
   });
 });
 
@@ -172,5 +298,16 @@ describe('createComponentTemplate', () => {
     expect(template).toBe(
       '<dummy-comp prop.bind="prop"><span>inner</span></dummy-comp>'
     );
+  });
+
+  it('handles components with no bindables', () => {
+    const { CustomElement } = jest.requireMock('aurelia');
+    CustomElement.getDefinition.mockReturnValueOnce({
+      name: 'no-bindables',
+      bindables: undefined,
+    });
+
+    const template = createComponentTemplate(class {} as any);
+    expect(template).toBe('<no-bindables></no-bindables>');
   });
 });

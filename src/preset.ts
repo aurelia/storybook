@@ -3,29 +3,41 @@
 
 import { getRules, getRsbuildRules } from './webpack';
 
+function addUnique<T>(existing: T[] | undefined, entries: T[]): T[] {
+    return Array.from(new Set([...(existing ?? []), ...entries]));
+}
+
+function ruleKey(rule: any): string {
+    const use = Array.isArray(rule.use) ? rule.use.join('|') : String(rule.use ?? '');
+    return `${String(rule.test)}::${use}::${String(rule.enforce ?? '')}`;
+}
+
+function appendUniqueRules(existing: any[], rules: any[]): any[] {
+    const seen = new Set(existing.map(ruleKey));
+    for (const rule of rules) {
+        const key = ruleKey(rule);
+        if (!seen.has(key)) {
+            existing.push(rule);
+            seen.add(key);
+        }
+    }
+    return existing;
+}
+
 /**
  * Optionally adjust the Vite configuration.
  */
 export async function viteFinal(config: any): Promise<any> {
-    // Configure Vite to properly handle dependencies
-    config.define = config.define || {};
-    config.define['process.env.NODE_ENV'] = JSON.stringify(process.env.NODE_ENV || 'development');
-    
-    // Configure optimization deps
-    config.optimizeDeps = config.optimizeDeps || {};
-    config.optimizeDeps.exclude = config.optimizeDeps.exclude || [];
-    
-    // Only exclude Aurelia-specific dependencies that cause issues
-    const excludeList = [
-        '@aurelia/runtime-html'
-    ];
-    
-    excludeList.forEach(dep => {
-        if (!config.optimizeDeps.exclude.includes(dep)) {
-            config.optimizeDeps.exclude.push(dep);
-        }
-    });
-    
+    config.define = {
+        ...(config.define ?? {}),
+        'process.env.NODE_ENV': config.define?.['process.env.NODE_ENV'] ?? JSON.stringify(process.env.NODE_ENV || 'development'),
+    };
+
+    config.optimizeDeps = {
+        ...(config.optimizeDeps ?? {}),
+        exclude: addUnique(config.optimizeDeps?.exclude, ['@aurelia/runtime-html']),
+    };
+
     return config;
 }
 
@@ -52,7 +64,7 @@ export async function rsbuildFinal(config: any): Promise<any> {
             rspack: (rspackConfig: any) => {
                 const moduleConfig = rspackConfig.module ?? (rspackConfig.module = {});
                 const rules = moduleConfig.rules ?? (moduleConfig.rules = []);
-                rules.push(...getRsbuildRules());
+                appendUniqueRules(rules, getRsbuildRules());
                 return rspackConfig;
             }
         }
@@ -65,10 +77,9 @@ export async function rsbuildFinal(config: any): Promise<any> {
  * @returns
  */
 export async function webpackFinal(config: any): Promise<any> {
-    const rules = config.module?.rules;
-    if (rules) {
-        rules.push(...getRules());
-    }
+    const moduleConfig = config.module ?? (config.module = {});
+    const rules = moduleConfig.rules ?? (moduleConfig.rules = []);
+    appendUniqueRules(rules, getRules());
 
     return config;
 }

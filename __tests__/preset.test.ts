@@ -38,10 +38,10 @@ describe('preset', () => {
       expect(getRules).toHaveBeenCalled();
     });
 
-    it('should handle a config with no module.rules', async () => {
+    it('should create module.rules when they are missing', async () => {
       const config = {};
       const result = await webpackFinal(config);
-      expect(result).toEqual(config);
+      expect(result.module.rules).toEqual(getRules());
     });
 
     it('should handle a config with existing rules', async () => {
@@ -54,13 +54,41 @@ describe('preset', () => {
       const result = await webpackFinal(config);
       expect(result.module.rules).toEqual([existingRule, ...getRules()]);
     });
+
+    it('does not add duplicate Aurelia rules', async () => {
+      const [tsRule] = getRules();
+      const config = {
+        module: {
+          rules: [tsRule],
+        },
+      };
+
+      const result = await webpackFinal(config);
+      expect(result.module.rules).toEqual(getRules());
+    });
   });
 
   describe('viteFinal', () => {
-    it('should return the config unchanged', async () => {
-      const config = { some: 'property' };
+    it('should add Aurelia preview defaults', async () => {
+      const config = {
+        define: { existing: 'true' },
+        optimizeDeps: { exclude: ['existing-dep'] },
+      };
       const result = await viteFinal(config);
       expect(result).toBe(config);
+      expect(result.define).toEqual({
+        existing: 'true',
+        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+      });
+      expect(result.optimizeDeps.exclude).toEqual(['existing-dep', '@aurelia/runtime-html']);
+    });
+
+    it('does not duplicate optimizeDeps exclusions', async () => {
+      const config = {
+        optimizeDeps: { exclude: ['@aurelia/runtime-html'] },
+      };
+      const result = await viteFinal(config);
+      expect(result.optimizeDeps.exclude).toEqual(['@aurelia/runtime-html']);
     });
   });
 
@@ -71,6 +99,15 @@ describe('preset', () => {
       expect(mergeRsbuildConfig).toHaveBeenCalledWith(config, expect.any(Object));
 
       const rspackConfig = { module: { rules: [] as any[] } };
+      result.tools.rspack(rspackConfig);
+      expect(rspackConfig.module.rules).toEqual(getRsbuildRules());
+    });
+
+    it('does not add duplicate rsbuild rules', async () => {
+      const config = { tools: {} };
+      const result = await rsbuildFinal(config);
+      const [tsRule] = getRsbuildRules();
+      const rspackConfig = { module: { rules: [tsRule] as any[] } };
       result.tools.rspack(rspackConfig);
       expect(rspackConfig.module.rules).toEqual(getRsbuildRules());
     });
