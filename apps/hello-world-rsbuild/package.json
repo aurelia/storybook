@@ -1,7 +1,7 @@
 {
   "name": "@aurelia/storybook-example-rsbuild",
   "description": "An Aurelia 2 client application.",
-  "version": "2.3.0",
+  "version": "3.0.0",
   "private": true,
   "repository": {
     "type": "git",
