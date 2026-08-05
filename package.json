@@ -2,6 +2,15 @@
   "name": "@aurelia/storybook",
   "version": "3.0.0",
   "description": "A Storybook plugin to render Aurelia 2 components using Vite, Webpack, or Rsbuild/Rspack",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aurelia/storybook.git"
+  },
+  "homepage": "https://github.com/aurelia/storybook#readme",
+  "bugs": {
+    "url": "https://github.com/aurelia/storybook/issues"
+  },
+  "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
