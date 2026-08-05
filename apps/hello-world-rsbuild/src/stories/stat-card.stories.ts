@@ -67,7 +67,7 @@ export const ManualRefreshDemo = {
     description: 'Completed deploys without rollbacks.',
     onRefresh: fn(),
   },
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
     const canvas = within(canvasElement);
     const refreshButton = await canvas.findByRole('button', { name: /refresh metric/i });
     await userEvent.click(refreshButton);

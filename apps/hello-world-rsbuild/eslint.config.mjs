@@ -1,25 +1,17 @@
-import eslint from "@eslint/js";
+import eslint from '@eslint/js';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
-import tsParser from "@typescript-eslint/parser";
-import globals from "globals";
 
 export default [
+  { ignores: ['dist/**', 'storybook-static/**'] },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["**/*.ts"],
-
+    files: ['**/*.{js,mjs,ts}'],
     languageOptions: {
-      globals: {
-        ...globals.builtin,
-        ...globals.nodeBuiltin,
-        ...globals.browser,
-        ...globals.node,
-      },
-
-      parser: tsParser,
-      ecmaVersion: 2019,
-      sourceType: "module",
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: { ...globals.browser, ...globals.node },
     },
-  }
+  },
 ];

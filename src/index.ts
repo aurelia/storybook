@@ -1,42 +1,54 @@
-import { renderToCanvas } from './preview/render';
-import { defineAureliaStory } from './preview/helpers';
-
-export { renderToCanvas };
-export const render = renderToCanvas;
-export { defineAureliaStory };
+export { defineAureliaStory } from './preview/helpers';
+export {
+  __definePreview,
+  definePreview,
+} from './preview/csf-factories';
+export {
+  render,
+  renderToCanvas,
+  setup,
+} from './preview/render';
+export {
+  aureliaProjectAnnotations,
+  composeStories,
+  composeStory,
+  setProjectAnnotations,
+} from './preview/portable-stories';
 export type {
-  AureliaRenderer,
-  AureliaStoryResult,
+  Args,
   AureliaArgsStoryFn,
-  AureliaRenderContext,
-  AureliaStoryContext,
+  AureliaComponent,
+  AureliaMount,
+  AureliaMountOptions,
   AureliaParameters,
-  AureliaStoryParameters
+  AureliaRenderer,
+  AureliaSetup,
+  AureliaStoryContext,
+  AureliaStoryFnResult,
+  AureliaStoryParameters,
+  AureliaStoryResult,
+  Decorator,
+  Loader,
+  Meta,
+  Preview,
+  StoryContext,
+  StoryFn,
+  StoryObj,
+  StrictArgs,
 } from './preview/types';
-
-// Define the framework
-export const framework = {
-  name: '@aurelia/storybook',
-  options: {}
-};
-
-// Framework configuration for Storybook
-export const frameworkOptions = {
-  builder: {
-    name: '@storybook/builder-vite',
-    options: {}
-  }
-};
-
-// Export a complete framework configuration
-export const aureliaFramework = {
-  name: '@aurelia/storybook',
-  options: {},
-  builder: '@storybook/builder-vite'
-};
-
-// Provide external dependencies configuration
-export const externals = {
-  'react': 'React',
-  'react-dom': 'ReactDOM'
-};
+export type {
+  AureliaFactoryStory,
+  AureliaMeta,
+  AureliaPreview,
+  AureliaTypes,
+} from './preview/csf-factories';
+export type {
+  BuilderName,
+  FrameworkName,
+  FrameworkOptions,
+  StorybookConfig,
+} from './node';
+export type {
+  ArgTypes,
+  Parameters,
+} from 'storybook/internal/types';

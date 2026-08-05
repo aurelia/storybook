@@ -1,28 +1,16 @@
-# Aurelia Storybook Hello World
+# Vite example
 
-This project is bootstrapped by [aurelia/new](https://github.com/aurelia/new).
+This workspace exercises `@aurelia/storybook` with Aurelia 2, Vite, Storybook's Vite builder, autodocs, MDX, accessibility checks, interaction tests, and portable play-function mounting.
 
-## Start dev web server
+Run commands from the repository root:
 
-    npm start
+```bash
+npm run start --workspace @aurelia/storybook-example-vite
+npm run storybook --workspace @aurelia/storybook-example-vite
+npm run build --workspace @aurelia/storybook-example-vite
+npm run build-storybook --workspace @aurelia/storybook-example-vite
+npm run test:unit --workspace @aurelia/storybook-example-vite
+npm run test-storybook --workspace @aurelia/storybook-example-vite
+```
 
-## Start Storybook
-
-    npm run storybook
-
-## Build the app in production mode
-
-    npm run build
-
-## Build Storybook
-
-    npm run build-storybook
-
-## Unit Tests
-
-    npm run test
-
-Run unit tests in watch mode.
-
-    npm run test:watch
-
+The Storybook dev server uses port 6006. The browser test command runs every story in headless Chromium and includes the configured accessibility checks.

@@ -3,50 +3,39 @@ import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import { glob } from 'glob';
 
-const external = [
-  '@aurelia/runtime-html',
-  '@aurelia/vite-plugin',
-  '@storybook/builder-vite',
-  '@rsbuild/core',
-  'aurelia',
-  'react',
-  'react-dom',
-  'storybook/internal/types',
-  'storybook/theming'
-];
+const input = Object.fromEntries(
+  glob
+    .sync('src/**/*.ts')
+    .filter(
+      (file) =>
+        file !== 'src/preview/types.ts' &&
+        file !== 'src/preview/storybook-types.ts'
+    )
+    .map((file) => [
+      file.replace(/^src\//, '').replace(/\.ts$/, ''),
+      file,
+    ])
+);
 
-// Get all TypeScript files from src directory
-const srcFiles = glob
-  .sync('src/**/*.ts', { ignore: ['src/preview/types.ts', 'src/preview/storybook-types.ts'] })
-  .reduce((acc, file) => {
-  const key = file.replace(/^src\//, '').replace(/\.ts$/, '');
-  acc[key] = file;
-  return acc;
-}, {});
-
-const createConfig = (input, output) => ({
+export default {
   input,
   output: {
-    file: output,
+    dir: 'dist',
     format: 'esm',
     sourcemap: true,
-    exports: 'named'
+    exports: 'named',
+    preserveModules: true,
+    preserveModulesRoot: 'src',
   },
   plugins: [
     typescript({
-      tsconfig: './tsconfig.json',
+      tsconfig: './tsconfig.build.json',
       declaration: false,
-      outDir: 'dist'
+      declarationMap: false,
     }),
     resolve(),
-    commonjs()
+    commonjs(),
   ],
-  external
-});
-
-// Create configs for all source files - ESM only for Storybook v10
-const configs = Object.entries(srcFiles).map(([name, input]) =>
-  createConfig(input, `dist/${name}.js`)
-);
-
-export default configs;
+  external: (id) =>
+    !id.startsWith('.') && !id.startsWith('/') && !id.startsWith('src/'),
+};

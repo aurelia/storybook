@@ -1,29 +1,14 @@
-# examples
+# Webpack example
 
-This project is bootstrapped by [aurelia/new](https://github.com/aurelia/new).
+This workspace exercises `@aurelia/storybook` with Aurelia 2 and Storybook's Webpack 5 builder. It covers the framework's automatic TypeScript and Aurelia template-loader rules as well as docs, accessibility, controls, and interaction stories.
 
-## Start dev web server
+Run commands from the repository root:
 
-    npm start
-
-## Build the app in production mode
-
-    npm run build
-
-It builds all files to dist folder. To deploy to production server, copy all the `dist/*` files to production root folder.
-
-For example
-```
-dist/index.html
-dist/foo.12345.js
-```
-Copy to production root folder
-```
-root_folder/index.html
-root_folder/foo.12345.js
+```bash
+npm run start --workspace @aurelia/storybook-example-webpack
+npm run storybook --workspace @aurelia/storybook-example-webpack
+npm run build --workspace @aurelia/storybook-example-webpack
+npm run build-storybook --workspace @aurelia/storybook-example-webpack
 ```
 
-
-## Analyze webpack bundle
-
-    npm run analyze
+The Storybook dev server uses port 6007. The application build writes to `apps/hello-world-webpack/dist`.

@@ -47,7 +47,7 @@ export const FillAndSubmit = {
     topics: ['Beta feedback', 'Success story'],
     onSubmit: fn(),
   },
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
     const canvas = within(canvasElement);
     await userEvent.type(canvas.getByLabelText('Name'), 'Jordan');
     await userEvent.type(canvas.getByLabelText('Email'), 'jordan@example.com');

@@ -1,461 +1,432 @@
 # @aurelia/storybook
 
-> **Note:** Storybook support is still release-candidate stage. Please report anything that feels off while Aurelia 2 and Storybook 10 continue to settle.
+`@aurelia/storybook` runs Aurelia 2 components inside Storybook 10. It provides the renderer, builder presets, CSF types, bindable controls, docs support, portable stories, and test integration expected from a first-class Storybook framework.
 
-`@aurelia/storybook` is the glue between Aurelia 2 components and Storybook 10. It wires an Aurelia app into Storybook's rendering pipeline so you can preview, test, and document your components with Vite, Webpack, or Rsbuild/Rspack.
+The framework works with Vite, Webpack 5, and Rsbuild/Rspack. You set `component` in the story metadata and write normal Storybook stories; there is no renderer boilerplate in `.storybook/preview.ts`.
 
-## Compatibility at a Glance
+## Compatibility
 
-| Item | Supported versions | Notes |
-| --- | --- | --- |
-| Storybook | 10.x (ESM) | Tested with 10.4.x; works with `storybook dev`/`storybook build` commands. |
-| Aurelia | 2.0.0-rc.1+ | Uses Aurelia's app APIs under the hood. |
-| Bundlers | `@storybook/builder-vite` (Vite 5-8) · `@storybook/builder-webpack5` · `storybook-builder-rsbuild` (Rsbuild/Rspack) | Pick whichever matches your app; they share the same Aurelia preview runtime. |
-| Node.js | ≥ 20.19.0 or ≥ 22.12.0 | Matches the engines field in `package.json` and Storybook 10's baseline.
+| Part | Supported version |
+| --- | --- |
+| Aurelia | `2.0.0-rc.2` |
+| Storybook | `10.5.x` |
+| Node.js | `^20.19.0` or `>=22.12.0` |
+| Vite builder | Vite `7.x` or `8.x` and `@storybook/builder-vite` `10.5.x` |
+| Webpack builder | `@storybook/builder-webpack5` `10.5.x` |
+| Rsbuild builder | Rsbuild `2.x` and `storybook-builder-rsbuild` `3.4.x` |
 
-## Requirements
+Aurelia `2.0.0-rc.2` supports Vite 8's Oxc pipeline, including TC39 decorators. No extra Babel or SWC configuration is required.
 
-- An Aurelia 2 application (TypeScript or JavaScript) already set up with Vite, Webpack, or Rsbuild/Rspack.
-- Storybook 10.x installed in the project. (Run `npx storybook@latest init` if you are starting fresh.)
-- The peer dependencies listed in [`package.json`](package.json) that align with the Aurelia 2 release-candidate train you are targeting.
+## What works
 
-## Installation
+- CSF 3 and typed CSF Factories with decorators, loaders, globals, tags, story extension, and `run`
+- automatic component rendering with bindables mapped to Storybook args and controls
+- actions and interaction tests through `storybook/test`
+- play-function `mount`
+- autodocs, MDX, bindable arg types, component descriptions, and dynamic Aurelia source markup
+- story-level and global Aurelia resources, DI registrations, containers, and setup hooks
+- live arg updates without restarting the Aurelia app; structural changes remount cleanly
+- portable stories through `composeStory`, `composeStories`, and `setProjectAnnotations`
+- Vite, Webpack 5, and Rsbuild/Rspack development and static builds
+- Storybook's Vitest addon running real Chromium tests
+
+## Install
+
+Start with the command for your builder. An existing Aurelia app will usually have the Aurelia builder plugin or loader already.
+
+### Vite
 
 ```bash
-npm install --save-dev @aurelia/storybook storybook @storybook/builder-vite
-# or, for Webpack builds:
-npm install --save-dev @aurelia/storybook storybook @storybook/builder-webpack5
-# or, for Rsbuild/Rspack builds:
-npm install --save-dev @aurelia/storybook storybook storybook-builder-rsbuild @rsbuild/core
+npm install --save-dev @aurelia/storybook storybook @storybook/builder-vite @aurelia/vite-plugin
 ```
 
-Add whichever addons you need (`@storybook/addon-links`, `@storybook/addon-actions`, etc.). Essentials functionality now ships with Storybook 10 core, so most projects only add optional extras.
+Vite 7 and Vite 8 are supported. With Vite 8, use `@aurelia/vite-plugin` `2.0.0-rc.2` or newer.
 
----
+### Webpack 5
 
-## Quick Start (Vite Builder)
+```bash
+npm install --save-dev @aurelia/storybook storybook @storybook/builder-webpack5 @aurelia/webpack-loader ts-loader
+```
 
-1. **Install** the dev dependencies as shown above (or with `pnpm`/`yarn`).
-2. **Create `.storybook/main.ts`:**
+### Rsbuild/Rspack
 
-   ```ts
-   // .storybook/main.ts
-   import { mergeConfig, type InlineConfig } from 'vite';
-   import type { StorybookConfig } from 'storybook/internal/types';
+```bash
+npm install --save-dev @aurelia/storybook storybook storybook-builder-rsbuild @rsbuild/core @aurelia/webpack-loader
+```
 
-   const config: StorybookConfig & { viteFinal?: (config: InlineConfig) => InlineConfig | Promise<InlineConfig> } = {
-     stories: ['../src/stories/**/*.stories.@(ts|tsx|js|jsx|mdx)'],
-     addons: [],
-     framework: {
-       name: '@aurelia/storybook',
-       options: {},
-     },
-     core: {
-       builder: '@storybook/builder-vite',
-     },
-     viteFinal: async (viteConfig) => {
-       // Optional: extend this when your app needs extra Vite config.
-       viteConfig.optimizeDeps = viteConfig.optimizeDeps ?? {};
-       viteConfig.optimizeDeps.exclude = Array.from(new Set([...(viteConfig.optimizeDeps.exclude ?? []), '@aurelia/runtime-html']));
+Add `@storybook/addon-docs`, `@storybook/addon-a11y`, and other addons as needed.
 
-       return mergeConfig(viteConfig, {
-         define: {
-           'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'development'),
-         },
-       });
-     },
-   };
+## Configure Storybook
 
-   export default config;
-   ```
-
-   The Aurelia preset already excludes `@aurelia/runtime-html` from pre-bundling and defines `process.env.NODE_ENV`; keep a `viteFinal` hook only when your app needs to merge additional Vite settings.
-
-3. **Create `.storybook/preview.ts`:**
-
-   ```ts
-   // .storybook/preview.ts
-   export { render, renderToCanvas } from '@aurelia/storybook';
-   ```
-
-4. **Add `storybook` scripts** to `package.json`:
-
-   ```json
-   {
-     "scripts": {
-       "storybook": "storybook dev -p 6006",
-       "build-storybook": "storybook build"
-     }
-   }
-   ```
-
-5. **Run Storybook:** `npm run storybook` starts the dev server at http://localhost:6006.
-
-## Quick Start (Webpack Builder)
-
-1. Install `@storybook/builder-webpack5` instead of the Vite builder.
-2. Create `.storybook/main.ts`:
-
-   ```ts
-   import type { StorybookConfig } from 'storybook/internal/types';
-
-   const config: StorybookConfig = {
-     stories: ['../src/**/*.stories.@(ts|tsx|js|jsx|mdx)'],
-     addons: [],
-     framework: {
-       name: '@aurelia/storybook',
-       options: {},
-     },
-     core: {
-       builder: '@storybook/builder-webpack5',
-     },
-   };
-
-   export default config;
-   ```
-
-   The preset embedded in this package injects the `ts-loader` + `@aurelia/webpack-loader` rules so you typically do not need extra config, but `webpackFinal` is available if you need to extend it further.
-
-3. Reuse the same `.storybook/preview.ts` and `package.json` scripts as in the Vite quick start.
-
----
-
-## Quick Start (Rsbuild/Rspack Builder)
-
-1. Install `storybook-builder-rsbuild` and `@rsbuild/core`.
-2. Create `.storybook/main.ts`:
-
-   ```ts
-   import type { StorybookConfig } from 'storybook/internal/types';
-
-   const config: StorybookConfig = {
-     stories: ['../src/**/*.stories.@(ts|tsx|js|jsx|mdx)'],
-     addons: [],
-     framework: {
-       name: '@aurelia/storybook',
-       options: {},
-     },
-     core: {
-       builder: 'storybook-builder-rsbuild',
-     },
-   };
-
-   export default config;
-   ```
-
-   The Aurelia preset injects `@aurelia/webpack-loader` via `rsbuildFinal`,
-   so most projects do not need extra Rsbuild configuration. If you do, add your own `rsbuildFinal`
-   and merge with `@rsbuild/core`'s `mergeRsbuildConfig`.
-
-3. Reuse the same `.storybook/preview.ts` and `package.json` scripts as in the Vite quick start.
-
----
-
-## Writing Aurelia Stories
-
-Story files look exactly like standard Storybook CSF stories. The framework export automatically:
-
-- Registers the component you set on the default export.
-- Uses `renderToCanvas` to bootstrap an Aurelia app inside Storybook's preview iframe.
-- Generates a template for you if you omit the `render` function (it binds every declared `bindable`).
+For Vite, create `.storybook/main.ts`:
 
 ```ts
-// src/stories/hello-world.stories.ts
+import { defineMain } from '@aurelia/storybook/node';
+
+export default defineMain({
+  stories: ['../src/**/*.@(mdx|stories.@(ts|js))'],
+  addons: ['@storybook/addon-docs', '@storybook/addon-a11y'],
+  framework: {
+    name: '@aurelia/storybook',
+    options: {},
+  },
+  core: {
+    builder: '@storybook/builder-vite',
+  },
+});
+```
+
+The framework preset adds the Aurelia Vite plugin when the Storybook config does not already have it. It also keeps Aurelia's runtime packages out of Vite dependency pre-bundling so the renderer and components use one runtime instance.
+
+Webpack uses the same file with a different builder:
+
+```ts
+core: {
+  builder: '@storybook/builder-webpack5',
+},
+```
+
+The preset adds `ts-loader` and `@aurelia/webpack-loader` rules once, preserving any rules already in the config.
+
+For Rsbuild, use:
+
+```ts
+core: {
+  builder: 'storybook-builder-rsbuild',
+},
+```
+
+The Rsbuild preset adds the matching Aurelia Rspack rules.
+
+Your `.storybook/preview.ts` carries project settings and addon types:
+
+```ts
+import { definePreview } from '@aurelia/storybook';
+import addonA11y from '@storybook/addon-a11y';
+import addonDocs from '@storybook/addon-docs';
+
+export default definePreview({
+  addons: [addonA11y(), addonDocs()],
+  tags: ['autodocs'],
+  parameters: {
+    controls: {
+      matchers: {
+        color: /(background|color)$/i,
+        date: /Date$/i,
+      },
+    },
+  },
+});
+```
+
+Do not export `render` or `renderToCanvas` from the preview file. Storybook loads them from the framework preset.
+
+The factory form above enables Storybook's typed `preview.meta` and `meta.story` APIs. A regular object using `satisfies Preview` remains supported for CSF 3 projects.
+
+Add the usual scripts:
+
+```json
+{
+  "scripts": {
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
+  }
+}
+```
+
+## Write stories
+
+Storybook's CSF Factories API infers the Aurelia component instance, addon parameters, decorators, and story args:
+
+```ts
+import preview from '../../.storybook/preview';
+import { expect, fn, userEvent } from 'storybook/test';
 import { HelloWorld } from '../hello-world';
+
+const meta = preview.meta({
+  title: 'Example/HelloWorld',
+  component: HelloWorld,
+  args: {
+    message: 'Hello from Storybook',
+    onIncrement: fn(),
+  },
+});
+
+export const Default = meta.story({
+  play: async ({ args, canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Increment' }));
+    await expect(args.onIncrement).toHaveBeenCalledWith(1);
+  },
+});
+
+export const Renamed = Default.extend({
+  args: { message: 'Extended story' },
+});
+```
+
+Factory stories also expose Storybook's composed metadata, `run`, `extend`, and test APIs. CSF 3 remains available when a project prefers object exports.
+
+Automatic rendering covers the common case:
+
+```ts
+import type { Meta, StoryObj } from '@aurelia/storybook';
 import { fn, userEvent, within } from 'storybook/test';
+import { HelloWorld } from '../hello-world';
 
 const meta = {
   title: 'Example/HelloWorld',
   component: HelloWorld,
-  render: () => ({
-    template: `<hello-world message.bind="message" on-increment.bind="onIncrement"></hello-world>`,
-  }),
+  args: {
+    message: 'Hello from Storybook',
+    onIncrement: fn(),
+  },
   argTypes: {
     message: { control: 'text' },
     onIncrement: { action: 'increment' },
   },
-};
+} satisfies Meta<typeof HelloWorld>;
 
 export default meta;
+type Story = StoryObj<typeof meta>;
 
-export const DefaultHelloWorld = {
-  args: {
-    message: 'Hello from Storybook!',
-    onIncrement: fn(),
-  },
-};
+export const Default = {} satisfies Story;
 
-export const InteractiveHelloWorld = {
-  args: {
-    message: 'Try clicking the button!',
-    onIncrement: fn(),
-  },
-  async play({ canvasElement }: { canvasElement: HTMLElement }) {
+export const Interaction = {
+  play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button'));
+    await userEvent.click(canvas.getByRole('button', { name: 'Increment' }));
   },
-};
+} satisfies Story;
+```
 
-export const NoArgs = {
-  render: () => ({ template: `<hello-world></hello-world>` }),
-};
+The generated Aurelia template binds only the args that are present. Omitted bindables keep the component's own default values. Adding or removing a bindable arg remounts the generated template; changing an existing value updates the running view model.
 
-export const WithCustomTemplate = {
-  render: () => ({
-    template: `<hello-world message.bind="message">Click me!</hello-world>`,
-  }),
+### Custom templates and projected content
+
+Use `defineAureliaStory` when the component needs specific markup, local resources, or projected content:
+
+```ts
+import {
+  defineAureliaStory,
+  type Meta,
+  type StoryObj,
+} from '@aurelia/storybook';
+import { CardHeading } from '../card-heading';
+import { ProductCard } from '../product-card';
+
+const meta = {
+  component: ProductCard,
+} satisfies Meta<typeof ProductCard>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Detailed = {
+  render: (args) =>
+    defineAureliaStory({
+      template: `
+        <product-card product.bind="product">
+          <card-heading>Featured</card-heading>
+        </product-card>
+      `,
+      props: args,
+      register: [ProductCard, CardHeading],
+    }),
   args: {
-    message: 'This is a custom message',
+    product: { name: 'Desk lamp' },
   },
-};
+} satisfies Story;
 ```
 
-### Helper for Typed Story Results
+A story result can contain:
 
-If you want stronger typing (especially for `props`), you can use the helper and types exported by the package:
+| Field | Purpose |
+| --- | --- |
+| `template` | Aurelia markup for the story |
+| `Component` | component override for this story |
+| `props` | values merged after Storybook args |
+| `innerHtml` | projected markup for an automatically generated component element |
+| `register` or `components` | custom elements, attributes, value converters, plugins, and other registries |
+| `items` | DI registrations and services |
+| `container` | an existing Aurelia container |
 
-```ts
-import { defineAureliaStory, type AureliaStoryResult } from '@aurelia/storybook';
+The render function may also return a template string or an Aurelia custom-element class directly.
 
-const render = (args: { title: string }): AureliaStoryResult<{ title: string }> =>
-  defineAureliaStory({
-    template: `<my-card title.bind="title"></my-card>`,
-    props: args,
-  });
-```
+### Aurelia configuration
 
-You can also import directly from `@aurelia/storybook/preview` or `@aurelia/storybook/preview/types` if you prefer.
-
-### Story Result Contract
-
-When you provide a custom `render` function, return an object with any of the following fields. The Aurelia runtime consumes them while creating the preview app:
-
-| Field | Type | Purpose |
-| --- | --- | --- |
-| `template` | `string` | Markup that will be enhanced inside Storybook's canvas. Required when you do not rely on the auto-generated template. |
-| `components` | `unknown[]` | Additional custom elements, value converters, etc. to register via `aurelia.register(...)`. |
-| `items` | `unknown[]` | Any DI registrations (e.g., `Registration.instance(...)`, services, or Aurelia plugins). |
-| `container` | `IContainer` | Supply a pre-configured Aurelia DI container if you need full control. |
-| `innerHtml` | `string` | Optional projection content used when a component template is auto-generated from the `component` export. |
-| `props` | `Record<string, any>` | Story-specific props that merge with Storybook `args`. Useful when you need defaults that should not surface as controls.
-
-## Registering Aurelia Dependencies & DI
-
-Use the `components`, `items`, or `container` fields to bring along everything your component needs:
+Register resources for a preview, component group, or individual story with `parameters.aurelia`:
 
 ```ts
-import { DI, Registration } from 'aurelia';
-import { HttpClient } from '@aurelia/fetch-client';
-import { OrdersPanel } from '../orders-panel';
-
-const container = DI.createContainer();
-container.register(
-  HttpClient,
-  Registration.instance('apiBaseUrl', 'https://api.example.com')
-);
-
-export const WithServices = {
-  render: () => ({
-    template: `<orders-panel api-base-url.bind="apiBaseUrl"></orders-panel>`,
-    components: [OrdersPanel],
-    container,
-    props: {
-      apiBaseUrl: 'https://api.example.com',
-    },
-  }),
-};
-```
-
-Because the Aurelia app lives for the lifetime of the story iframe, DI registrations persist until the story is torn down or Storybook forces a remount. If you need a clean state between stories, set `parameters: { forceRemount: true }` on the story or click the *Remount component* toolbar button in Storybook.
-
-### Global Aurelia Configuration (Preview + Story Parameters)
-
-You can register global resources/plugins and customize the DI container via Storybook parameters. The framework reads `parameters.aurelia` from the merged Storybook context (preview + component + story):
-
-```ts
-// .storybook/preview.ts
 import { Registration } from 'aurelia';
-import { CurrencyValueConverter } from '../src/resources/currency';
-import { FeatureFlags } from '../src/services/feature-flags';
+import type { Preview } from '@aurelia/storybook';
+import { FeatureFlags } from '../src/feature-flags';
+import { MoneyValueConverter } from '../src/money-value-converter';
 
-export const parameters = {
-  aurelia: {
-    register: [CurrencyValueConverter],
-    configureContainer: (container) => {
-      container.register(Registration.instance(FeatureFlags, { beta: true }));
-    },
-  },
-};
-```
-
-You can also override or extend per story:
-
-```ts
-export const WithOverrides = {
+const preview = {
   parameters: {
     aurelia: {
+      register: [MoneyValueConverter],
       configureContainer: (container) => {
-        container.register(Registration.instance('apiBaseUrl', 'https://staging.example.com'));
+        container.register(
+          Registration.instance(FeatureFlags, { newCheckout: true })
+        );
+      },
+      configure: (aurelia, context) => {
+        // Configure the app before it starts.
       },
     },
   },
-};
+} satisfies Preview;
+
+export default preview;
 ```
 
-These hooks run when the Aurelia app is created. If you rely on different container setups per story, use `parameters: { forceRemount: true }` to ensure a fresh app instance.
-
-#### Parameters API (Quick Reference)
+For package-wide setup, use `setup` from `.storybook/preview.ts`:
 
 ```ts
-export const parameters = {
-  aurelia: {
-    // Register global resources/plugins
-    register: [MyElement, MyValueConverter],
-    // Optional aliases for parity with story results
-    components: [MyElement],
-    items: [Registration.instance(MyService, new MyService())],
-    // Configure the DI container
-    configureContainer: (container, context) => {
-      // ...
-    },
-    // Configure the Aurelia instance
-    configure: (aurelia, context) => {
-      // ...
-    },
+import { setup } from '@aurelia/storybook';
+
+setup(async (aurelia, context) => {
+  // Runs for every newly mounted story app.
+});
+```
+
+`setup` returns an unregister function, which is useful in test environments.
+
+### Mount from a play function
+
+Destructure `mount` when a play function controls the initial render:
+
+```ts
+import { expect } from 'storybook/test';
+
+export const MountedByPlay = {
+  play: async ({ mount }) => {
+    const canvas = await mount({
+      Component: HelloWorld,
+      props: { message: 'Mounted from play' },
+    });
+
+    await expect(canvas.getByText('Mounted from play')).toBeVisible();
   },
 };
 ```
 
-## Cookbook
+Storybook detects the destructured parameter and waits for this mount before running post-story checks.
 
-### 1) Register global resources once
+## Docs and MDX
+
+Add `@storybook/addon-docs` to enable autodocs and MDX. Aurelia bindables appear under a `bindables` category, and dynamic source blocks show the Aurelia markup used by the story. Set `parameters.docs.source.code` when a story needs a hand-written source example.
+
+Regular Storybook MDX works without an Aurelia-specific wrapper:
+
+```mdx
+import { Meta, Canvas } from '@storybook/addon-docs/blocks';
+import * as Stories from './hello-world.stories';
+
+<Meta of={Stories} />
+
+# Hello World
+
+<Canvas of={Stories.Default} />
+```
+
+## Vitest browser tests
+
+Storybook's Vitest addon can run the same stories in Chromium. Extend the app's Vite config so the test project receives exactly one Aurelia plugin instance:
 
 ```ts
-// .storybook/preview.ts
-import { Registration } from 'aurelia';
-import { CurrencyValueConverter } from '../src/resources/currency';
-import { FeatureFlags } from '../src/services/feature-flags';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
+import { playwright } from '@vitest/browser-playwright';
+import { defineConfig } from 'vitest/config';
 
-export const parameters = {
-  aurelia: {
-    register: [CurrencyValueConverter],
-    configureContainer: (container) => {
-      container.register(Registration.instance(FeatureFlags, { beta: true }));
-    },
+const dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export default defineConfig({
+  test: {
+    projects: [
+      {
+        extends: './vite.config.ts',
+        plugins: [
+          storybookTest({ configDir: path.join(dirname, '.storybook') }),
+        ],
+        test: {
+          name: 'storybook',
+          browser: {
+            enabled: true,
+            headless: true,
+            provider: playwright({}),
+            instances: [{ browser: 'chromium' }],
+          },
+        },
+      },
+    ],
   },
-};
+});
 ```
 
-### 2) Mock a service per story
+Do not add another `aurelia()` call to this project when the extended Vite config already has it. Transforming Aurelia convention templates twice turns the first generated module into template text.
+
+With Vite 8 and a factory preview, pre-bundle the addon entry points imported by that preview. This prevents Vite from reloading the first browser-test run while it discovers them:
 
 ```ts
-import { Registration } from 'aurelia';
-import { IWeatherService } from '../src/services/weather-service';
-
-export const WithMockedService = {
-  render: (args) =>
-    defineAureliaStory({
-      template: `<weather-widget location.bind="location"></weather-widget>`,
-      props: args,
-      items: [
-        Registration.instance(IWeatherService, {
-          getWeather: async () => ({ location: 'Seattle', condition: 'Sunny' }),
-        }),
-      ],
-    }),
-};
+optimizeDeps: {
+  include: [
+    '@storybook/addon-a11y',
+    '@storybook/addon-docs',
+    '@storybook/addon-vitest',
+    'storybook/internal/csf',
+  ],
+},
 ```
 
-### 3) Force a clean DI container per story
+## Portable stories
+
+The package exports Aurelia-aware portable-story helpers:
 
 ```ts
-export const CleanState = {
-  parameters: { forceRemount: true },
-  render: (args) =>
-    defineAureliaStory({
-      template: `<my-component value.bind="value"></my-component>`,
-      props: args,
-    }),
-};
+import { composeStories } from '@aurelia/storybook/portable-stories';
+import * as stories from './hello-world.stories';
+
+const { Default } = composeStories(stories);
+
+await Default.run();
 ```
 
-## Example Apps Inside This Repo
+When `.storybook/preview.ts` exports a CSF 3 configuration object, use `setProjectAnnotations` once in a test setup file so portable stories receive it:
 
-- `apps/hello-world` – Vite-based Aurelia starter that consumes `@aurelia/storybook`.
-- `apps/hello-world-webpack` – Equivalent Webpack example.
-- `apps/hello-world-rsbuild` – Rsbuild/Rspack example for projects using `storybook-builder-rsbuild`.
+```ts
+import { setProjectAnnotations } from '@aurelia/storybook/portable-stories';
+import preview from '../.storybook/preview';
 
-To try them out:
-
-```bash
-cd apps/hello-world
-npm install
-npm run storybook
-
-cd ../hello-world-webpack
-npm install
-npm run storybook
-
-cd ../hello-world-rsbuild
-npm install
-npm run storybook
+setProjectAnnotations(preview);
 ```
 
-Each sample project now includes a small library of showcase stories you can open in Storybook to see different aspects of the integration:
-
-- `HelloWorld` – the minimal counter example wired to Storybook controls and actions.
-- `StatCard` – demonstrates args-driven styling and wiring the `onRefresh` action.
-- `NotificationCenter` – renders repeating templates and exercises dismissal actions + play functions.
-- `FeedbackForm` – shows two-way bindings, form state, and Storybook interaction tests that fill and submit inputs.
-- `WeatherWidget` – uses Aurelia's DI plus `items` registration in the story to provide a mock `WeatherService` implementation.
-
-These are great references when you want to compare your configuration against a working baseline or copy/paste patterns into your own component library.
-
-## Troubleshooting & Tips
-
-- **`process is not defined` inside the preview iframe** – Add `define: { 'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'development') }` in your `viteFinal` merge (shown above).
-- **Vite fails while pre-bundling Aurelia packages** – Ensure `@aurelia/runtime-html` (and any other Aurelia libs that re-export DOM globals) are listed in `optimizeDeps.exclude`.
-- **State leaks between stories** – By default we reuse the Aurelia app instance for performance. Pass `parameters: { forceRemount: true }` to stories that must start fresh.
-- **Need additional Storybook addons?** – Add them to the `addons` array as usual. The Aurelia framework only controls rendering, so controls, actions, interactions, and testing addons all work normally.
+CSF Factory stories already carry their preview annotations. Import one and call `await Story.run()` directly instead of composing it again.
 
 ## Development
 
-This repository publishes the Storybook framework itself. Helpful scripts:
+This repository is an npm workspace containing the framework and Vite, Webpack, and Rsbuild examples.
 
-- `npm run build` – bundle the framework with Rollup.
-- `npm run build:types` – emit `.d.ts` files via `tsc`.
-- `npm run watch` – development build with Rollup watch mode.
-- `npm run test` – run the Jest suite (uses the JSDOM environment).
+```bash
+npm ci
+npm run sync:versions:check
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run lint:examples
+npm run typecheck:examples
+npm run test:examples
+npm run build:examples
+npm run build:storybooks
+npm run test:storybook
+```
 
-While developing, you can link the package into one of the sample apps in `apps/` to manual-test Storybook changes end to end.
-
-## Releases & Changelog
-
-- Keep `CHANGELOG.md` updated for each release (use the **Unreleased** section while working).
-- Align example app versions with the root package before tagging:
-  - `npm run sync:versions`
-- Tag releases as `vX.Y.Z` so the publish workflow can run.
-
-Publish flow (automated via GitHub Actions):
-1. Update `package.json` version.
-2. Generate `CHANGELOG.md` from conventional commits: `npm run changelog`.
-3. Run `npm run sync:versions` and commit changes.
-4. Create tag `vX.Y.Z` and push it.
-
-## Troubleshooting
-
-- **AUR0153 duplicate element registration**: ensure the same component isn't registered multiple times within the same story/container.
-- **Args undefined during first render**: defensively handle optional args in components (e.g., fallbacks for arrays/strings).
-- **Rsbuild `loader.loadModule is not a function`**: avoid `ts-loader` in Rsbuild/Rspack builds; use the built-in Rsbuild TS handling.
-
-## Contributing
-
-Bug reports, docs tweaks, and feature PRs are all welcome. Please open an issue to discuss significant changes, and spin up one of the example apps to verify the behavior you are touching.
+`npm run test:storybook` requires a Chromium binary. Install it with `npx playwright install chromium` if Playwright has not already done so.
 
 ## License
 
-[MIT](LICENSE)
-
-## Acknowledgements
-
-Special shout out to Dmitry (@ekzobrain on GitHub) for the work he did on Storybook support for earlier versions of Storybook, which helped lay the groundwork for this implementation: [https://github.com/ekzobrain/storybook](https://github.com/ekzobrain/storybook).
+MIT

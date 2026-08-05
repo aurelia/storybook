@@ -1,7 +1,8 @@
-const config = {
-  stories: ["../src/**/*.mdx", "../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"],
-  addons: [
-  ],
+import { defineMain } from '@aurelia/storybook/node';
+
+export default defineMain({
+  stories: ['../src/**/*.@(mdx|stories.@(ts|tsx|js|jsx))'],
+  addons: ['@storybook/addon-docs', '@storybook/addon-a11y'],
   framework: {
     name: '@aurelia/storybook',
     options: {},
@@ -9,6 +10,4 @@ const config = {
   core: {
     builder: '@storybook/builder-webpack5',
   },
-  docs: {},
-};
-export default config; 
+});

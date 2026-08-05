@@ -7,7 +7,7 @@ const rootPath = path.resolve(__dirname, '..');
 const rootPkgPath = path.join(rootPath, 'package.json');
 const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, 'utf8'));
 const version = rootPkg.version;
-const desiredStorybookDependency = `^${version}`;
+const desiredStorybookDependency = 'file:../..';
 
 const exampleDirs = [
   'apps/hello-world',

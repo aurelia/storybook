@@ -5,7 +5,7 @@ export class HelloWorld {
   // New reactive counter property to track number of clicks
   counter = 0;
   // New bindable event callback for the increment action
-  @bindable() onIncrement;
+  @bindable() onIncrement?: (value: number) => void;
 
   // Method to increment the counter and fire the onIncrement callback if provided.
   increment() {

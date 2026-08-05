@@ -1,28 +1,15 @@
-# Aurelia Storybook Hello World
+# Rsbuild/Rspack example
 
-This project is bootstrapped by [aurelia/new](https://github.com/aurelia/new).
+This workspace exercises `@aurelia/storybook` with Aurelia 2 and `storybook-builder-rsbuild`. The app itself remains a small Vite fixture; Storybook uses Rsbuild/Rspack so the framework's Rspack loader rules, docs, accessibility checks, controls, and interactions are covered independently.
 
-## Start dev web server
+Run commands from the repository root:
 
-    npm start
+```bash
+npm run start --workspace @aurelia/storybook-example-rsbuild
+npm run storybook --workspace @aurelia/storybook-example-rsbuild
+npm run build --workspace @aurelia/storybook-example-rsbuild
+npm run build-storybook --workspace @aurelia/storybook-example-rsbuild
+npm run test:unit --workspace @aurelia/storybook-example-rsbuild
+```
 
-## Start Storybook
-
-    npm run storybook
-
-## Build the app in production mode
-
-    npm run build
-
-## Build Storybook
-
-    npm run build-storybook
-
-## Unit Tests
-
-    npm run test
-
-Run unit tests in watch mode.
-
-    npm run test:watch
-
+The Storybook dev server uses port 6008.

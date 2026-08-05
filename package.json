@@ -8,7 +8,6 @@
   "sideEffects": false,
   "files": [
     "dist",
-    "preset.js",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -16,29 +15,55 @@
   "publishConfig": {
     "access": "public"
   },
+  "workspaces": [
+    "apps/*"
+  ],
   "engines": {
-    "node": ">=20.19.0 || >=22.12.0"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
-    "build": "rollup -c",
+    "build": "npm run build:js && npm run build:types",
+    "build:js": "npm run clean && rollup -c",
     "build:types": "tsc --project tsconfig.build.json --emitDeclarationOnly",
     "changelog": "conventional-changelog -p conventionalcommits -i CHANGELOG.md -s -r 0",
+    "clean": "node scripts/clean-dist.cjs",
+    "lint": "eslint src __tests__ scripts rollup.config.mjs vitest.config.ts",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
     "sync:versions": "node scripts/sync-versions.cjs",
     "sync:versions:check": "node scripts/sync-versions.cjs --check",
     "watch": "rollup -c -w",
-    "test": "NODE_OPTIONS=--no-deprecation jest"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint:examples": "npm run lint --workspaces --if-present",
+    "typecheck:examples": "npm run typecheck --workspaces --if-present",
+    "test:examples": "npm run test:unit --workspaces --if-present",
+    "build:examples": "npm run build --workspaces --if-present",
+    "build:storybooks": "npm run build-storybook --workspaces --if-present",
+    "test:storybook": "npm run test-storybook --workspace @aurelia/storybook-example-vite",
+    "test:storybook-static": "node scripts/smoke-storybooks.mjs",
+    "prepack": "npm run build"
   },
   "peerDependencies": {
-    "@aurelia/runtime-html": "^2.0.0-rc.1",
-    "@aurelia/vite-plugin": "^2.0.0-rc.1",
+    "@aurelia/vite-plugin": "^2.0.0-rc.2",
+    "@aurelia/webpack-loader": "^2.0.0-rc.2",
     "@rsbuild/core": "^1.7.2 || ^2.0.0",
-    "@storybook/builder-vite": "^10.4.1",
-    "@storybook/builder-webpack5": "^10.4.1",
-    "aurelia": "^2.0.0-rc.1",
-    "storybook": "^10.4.1",
-    "storybook-builder-rsbuild": "^3.3.4"
+    "@storybook/builder-vite": "^10.5.6",
+    "@storybook/builder-webpack5": "^10.5.6",
+    "aurelia": "^2.0.0-rc.2",
+    "storybook": "^10.5.6",
+    "storybook-builder-rsbuild": "^3.4.0",
+    "ts-loader": "^9.6.2"
+  },
+  "dependencies": {
+    "@aurelia/runtime": "^2.0.0-rc.2"
   },
   "peerDependenciesMeta": {
+    "@aurelia/vite-plugin": {
+      "optional": true
+    },
+    "@aurelia/webpack-loader": {
+      "optional": true
+    },
     "@rsbuild/core": {
       "optional": true
     },
@@ -50,39 +75,53 @@
     },
     "storybook-builder-rsbuild": {
       "optional": true
+    },
+    "ts-loader": {
+      "optional": true
     }
   },
   "devDependencies": {
-    "@aurelia/webpack-loader": "^2.0.0-rc.1",
-    "@rollup/plugin-commonjs": "^28.0.6",
-    "@rollup/plugin-node-resolve": "^16.0.1",
-    "@rollup/plugin-typescript": "^12.1.3",
-    "@rsbuild/core": "^2.0.9",
-    "@storybook/builder-vite": "^10.4.1",
-    "@types/jest": "^30.0.0",
+    "@aurelia/webpack-loader": "^2.0.0-rc.2",
+    "@aurelia/vite-plugin": "^2.0.0-rc.2",
+    "@eslint/js": "^10.0.1",
+    "@rollup/plugin-commonjs": "^29.0.3",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-typescript": "^12.3.0",
+    "@rsbuild/core": "^2.1.10",
+    "@storybook/builder-vite": "^10.5.6",
+    "@storybook/builder-webpack5": "^10.5.6",
+    "@types/node": "^26.1.2",
     "conventional-changelog-cli": "^5.0.0",
-    "conventional-changelog-conventionalcommits": "^8.0.0",
-    "glob": "^11.0.3",
-    "jest": "^30.0.2",
-    "jest-environment-jsdom": "^30.0.2",
-    "postcss": "^8.5.15",
-    "rollup": "^4.61.0",
-    "storybook": "^10.4.1",
-    "ts-jest": "^29.4.0",
-    "ts-loader": "^9.5.2",
-    "typescript": "^5.8.3",
-    "vite": "^7.3.5"
-  },
-  "overrides": {
-    "picomatch": "^4.0.4",
-    "postcss": "^8.5.15",
-    "rollup": "^4.61.0",
-    "vite": "^7.3.5"
+    "conventional-changelog-conventionalcommits": "^10.2.1",
+    "eslint": "^10.8.0",
+    "glob": "^13.0.6",
+    "globals": "^17.9.0",
+    "jsdom": "^29.1.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "playwright": "^1.60.0",
+    "rollup": "^4.62.4",
+    "storybook": "^10.5.6",
+    "storybook-builder-rsbuild": "^3.4.0",
+    "ts-loader": "^9.6.2",
+    "tslib": "^2.8.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.66.0",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
   },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./development": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
     },
     "./preset": {
       "types": "./dist/preset.d.ts",
@@ -92,17 +131,24 @@
       "types": "./dist/preview.d.ts",
       "default": "./dist/preview.js"
     },
+    "./preview-docs": {
+      "types": "./dist/preview-docs.d.ts",
+      "default": "./dist/preview-docs.js"
+    },
     "./preview/types": {
-      "types": "./dist/preview/types.d.ts",
-      "default": "./dist/preview/types-runtime.js"
+      "types": "./dist/preview/types.d.ts"
     },
     "./preview/storybook-types": {
-      "types": "./dist/preview/storybook-types.d.ts",
-      "default": "./dist/preview/storybook-types-runtime.js"
+      "types": "./dist/preview/storybook-types.d.ts"
     },
     "./preview/helpers": {
       "types": "./dist/preview/helpers.d.ts",
       "default": "./dist/preview/helpers.js"
-    }
+    },
+    "./portable-stories": {
+      "types": "./dist/preview/portable-stories.d.ts",
+      "default": "./dist/preview/portable-stories.js"
+    },
+    "./package.json": "./package.json"
   }
 }

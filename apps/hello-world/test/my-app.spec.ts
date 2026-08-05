@@ -10,6 +10,6 @@ describe('my-app', () => {
       [MyApp],
     ).started;
 
-    assertText('Hello World!', { compact: true });
+    assertText('Hello World', { compact: true });
   });
 });

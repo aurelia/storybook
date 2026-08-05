@@ -1,6 +1,6 @@
 import { defineAureliaStory } from '@aurelia/storybook';
 import { Registration } from 'aurelia';
-import { fn, userEvent, within } from 'storybook/test';
+import { userEvent, within } from 'storybook/test';
 import { WeatherWidget } from '../components/weather-widget';
 import { IWeatherService, WeatherService, WeatherSummary } from '../services/weather-service';
 
@@ -54,7 +54,7 @@ export const RefreshInteraction = {
   args: {
     location: 'Lisbon, Portugal',
   },
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
     const canvas = within(canvasElement);
     const refreshButton = await canvas.findByRole('button', { name: /refresh/i });
     await userEvent.click(refreshButton);

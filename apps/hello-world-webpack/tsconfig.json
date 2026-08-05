@@ -1,18 +1,16 @@
 {
   "compilerOptions": {
-    "module": "esnext",
+    "target": "ES2022",
+    "module": "ESNext",
     "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
     "skipLibCheck": true,
-    "target": "ES2017",
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "importHelpers": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "types": ["node"]
   },
-  "include": [
-    "src"
-  ],
-  "files": [
-    "src/resource.d.ts"
-  ]
+  "include": ["src", ".storybook"]
 }

@@ -1,64 +1,61 @@
+import type { Meta, StoryObj } from '@aurelia/storybook';
 import { defineAureliaStory } from '@aurelia/storybook';
+import { expect, fn, userEvent, within } from 'storybook/test';
 import { HelloWorld } from '../hello-world';
-import { fn, userEvent, within } from 'storybook/test';
 
 type HelloWorldArgs = {
   message?: string;
-  onIncrement?: () => void;
+  onIncrement?: (value: number) => void;
 };
 
 const meta = {
   title: 'Example/HelloWorld',
   component: HelloWorld,
-  render: (args: HelloWorldArgs) =>
-    defineAureliaStory({
-      template: `<hello-world message.bind="message" on-increment.bind="onIncrement"></hello-world>`,
-      props: args,
-    }),
+  parameters: {
+    layout: 'centered',
+  },
   argTypes: {
     message: { control: 'text' },
-    onIncrement: { action: 'increment' }
-  }
-};
+    onIncrement: { action: 'increment' },
+  },
+} satisfies Meta<HelloWorldArgs>;
 
 export default meta;
+type Story = StoryObj<typeof meta>;
 
 export const DefaultHelloWorld = {
   args: {
     message: 'Hello from Aurelia Storybook',
-    onIncrement: fn()
-  }
-};
+    onIncrement: fn(),
+  },
+} satisfies Story;
 
 export const InteractiveHelloWorld = {
   args: {
     message: 'Try clicking the button!',
-    onIncrement: fn()
+    onIncrement: fn(),
   },
-  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+  play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    const button = canvas.getByRole('button');
-    // Simulate three button clicks
+    const button = canvas.getByRole('button', { name: 'Increment' });
     await userEvent.click(button);
     await userEvent.click(button);
     await userEvent.click(button);
-  }
-};
+    await expect(args.onIncrement).toHaveBeenCalledTimes(3);
+    await expect(args.onIncrement).toHaveBeenNthCalledWith(3, 3);
+  },
+} satisfies Story;
 
-export const NoArgs = {
-  render: () =>
-    defineAureliaStory({
-      template: `<hello-world></hello-world>`,
-    })
-};
+export const NoArgs = {} satisfies Story;
 
 export const WithCustomTemplate = {
-  render: (args: HelloWorldArgs) =>
+  render: (args) =>
     defineAureliaStory({
-      template: `<hello-world message.bind="message">Click me!</hello-world>`,
+      template:
+        '<hello-world message.bind="message">Custom slot content</hello-world>',
       props: args,
     }),
   args: {
-    message: 'This is a custom message'
-  }
-};
+    message: 'This is a custom message',
+  },
+} satisfies Story;

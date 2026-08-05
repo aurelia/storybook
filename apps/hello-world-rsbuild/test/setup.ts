@@ -17,13 +17,7 @@ beforeAll(() => {
   });
 });
 
-afterEach(() => {
-  fixtures.forEach(async f => {
-    try {
-      await f.stop(true);
-    } catch {
-      // ignore
-    }
-  });
+afterEach(async () => {
+  await Promise.all(fixtures.map(async (fixture) => fixture.stop(true)));
   fixtures.length = 0;
 });

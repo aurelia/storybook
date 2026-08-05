@@ -1,9 +1,8 @@
-import type { StorybookConfig } from 'storybook/internal/types';
+import { defineMain } from '@aurelia/storybook/node';
 
-const config: StorybookConfig = {
-  stories: ['../src/stories/**/*.stories.@(ts|tsx|js|jsx|mdx)'],
-  addons: [
-  ],
+export default defineMain({
+  stories: ['../src/stories/**/*.@(mdx|stories.@(ts|tsx|js|jsx))'],
+  addons: ['@storybook/addon-docs', '@storybook/addon-a11y'],
   framework: {
     name: '@aurelia/storybook',
     options: {},
@@ -11,6 +10,4 @@ const config: StorybookConfig = {
   core: {
     builder: 'storybook-builder-rsbuild',
   },
-};
-
-export default config;
+});

@@ -1,313 +1,447 @@
+import type { RenderContext } from 'storybook/internal/types';
+import { refs } from 'aurelia';
 import {
+  createComponentTemplate,
+  normalizeStoryResult,
   render,
   renderToCanvas,
-  createAureliaApp,
-  createComponentTemplate,
 } from '../src/preview/render';
+import type { AureliaRenderer, AureliaStoryResult } from '../src/preview/types';
 
-// Add this at the very top of the file, before any imports.
-jest.mock('aurelia', () => {
-  const actual = jest.requireActual('aurelia');
+const aureliaMocks = vi.hoisted(() => ({
+  getDefinition: vi.fn(() => ({
+    name: 'dummy-comp',
+    bindables: { prop: { attribute: 'prop', name: 'prop' } } as Record<
+      string,
+      { attribute: string; name: string }
+    >,
+    key: 'au:ce:dummy-comp',
+  })),
+  tasksSettled: vi.fn(async () => false),
+}));
+
+vi.mock('aurelia', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('aurelia')>();
   return {
     ...actual,
     CustomElement: {
       ...actual.CustomElement,
-      getDefinition: jest.fn().mockReturnValue({
-         name: 'dummy-comp',
-         bindables: { prop: { attribute: 'prop', name: 'prop' } },
-      }),
+      getDefinition: aureliaMocks.getDefinition,
     },
   };
 });
 
+vi.mock('@aurelia/runtime', () => ({
+  tasksSettled: aureliaMocks.tasksSettled,
+}));
+
+function fakeApp(viewModel: Record<string, unknown> = {}) {
+  return {
+    start: vi.fn(async () => undefined),
+    stop: vi.fn(async () => undefined),
+    root: { controller: { viewModel } },
+  };
+}
+
+function renderContext(
+  storyFn: () => unknown,
+  overrides: Record<string, unknown> = {}
+): RenderContext<AureliaRenderer> {
+  const id = (overrides.id as string | undefined) ?? 'test--story';
+  const storyContext = {
+    id,
+    title: 'Test',
+    name: 'Story',
+    component: class DummyComponent {},
+    args: {},
+    parameters: {},
+    globals: {},
+    ...((overrides.storyContext as Record<string, unknown> | undefined) ?? {}),
+  };
+
+  return {
+    id,
+    title: 'Test',
+    name: 'Story',
+    storyFn,
+    unboundStoryFn: vi.fn(),
+    showMain: vi.fn(),
+    showError: vi.fn(),
+    showException: vi.fn(),
+    forceRemount: false,
+    storyContext,
+    ...overrides,
+  } as unknown as RenderContext<AureliaRenderer>;
+}
+
 describe('render', () => {
-  it('throws an error when no component is provided', () => {
+  it('requires a component when the default render function is used', () => {
     expect(() =>
       render(
         {},
-        { id: 'story-1', title: 'Test', name: 'Story', component: undefined as any } as any
+        {
+          id: 'test--story',
+          title: 'Test',
+          name: 'Story',
+          component: undefined,
+        } as never
       )
     ).toThrow(
-      'Unable to render story Test / Story as the component annotation is missing from the default export'
+      'Unable to render Test / Story: add a component to the default export or provide a story render function.'
     );
   });
 
-  it('returns the expected object when a component is provided', () => {
-    const DummyComponent = () => {};
-    const args = { foo: 'bar' };
-    const result = render(args, { id: 'story-1', component: DummyComponent as any } as any);
-    expect(result).toEqual({ Component: DummyComponent, props: args });
+  it('maps Storybook args to the annotated component', () => {
+    const Component = class {};
+    const args = { message: 'Hello' };
+    expect(
+      render(args, { id: 'test--story', component: Component } as never)
+    ).toEqual({ Component, props: args });
+  });
+});
+
+describe('normalizeStoryResult', () => {
+  it('accepts markup shorthand', () => {
+    expect(normalizeStoryResult('<p>Hello</p>')).toEqual({
+      template: '<p>Hello</p>',
+    });
+  });
+
+  it('rejects empty results', () => {
+    expect(normalizeStoryResult(null)).toBeUndefined();
   });
 });
 
 describe('renderToCanvas', () => {
   let canvas: HTMLElement;
-  const DummyComponent = class {};
 
   beforeEach(() => {
     canvas = document.createElement('div');
+    aureliaMocks.tasksSettled.mockClear();
   });
 
-  it('calls showError when the story function returns a falsy value', async () => {
-    const storyFn = jest.fn(() => null) as any;
-    const showError = jest.fn() as any;
-    const showMain = jest.fn() as any;
-    const context = {
-      storyFn,
-      title: 'Test Title',
-      name: 'Test Story',
-      showMain,
-      showError,
-      storyContext: {
-        parameters: {},
-        component: DummyComponent as any,
-        args: {},
-      },
-      forceRemount: false,
-    } as any;
-
+  it('shows a useful error when a story returns nothing', async () => {
+    const context = renderContext(() => null);
     const cleanup = await renderToCanvas(context, canvas);
-    expect(showError).toHaveBeenCalled();
-    expect(typeof cleanup).toBe('function');
+
+    expect(context.showError).toHaveBeenCalledWith({
+      title: 'Nothing was returned by Test / Story.',
+      description:
+        'Return Aurelia markup, a custom element, or an object with a template or Component.',
+    });
+    expect(context.showMain).not.toHaveBeenCalled();
+    expect(cleanup).toBeTypeOf('function');
   });
 
-  it('bootstraps an Aurelia app when none exists or forceRemount is true', async () => {
-    const fakeAurelia = {
-      start: jest.fn().mockResolvedValue(undefined),
-      stop: jest.fn().mockResolvedValue(undefined),
-      root: { controller: { viewModel: {} } },
-    } as any;
-    const story = { template: '<div></div>', props: { test: 'value' } } as any;
-    const storyFn = jest.fn(() => story) as any;
-    const showError = jest.fn() as any;
-    const showMain = jest.fn() as any;
+  it('shows a useful error when a result has no template or component', async () => {
+    const context = renderContext(() => ({}), {
+      storyContext: { component: undefined },
+    });
+    await renderToCanvas(context, canvas);
 
-    const bootstrapSpy = jest.fn(() => fakeAurelia);
+    expect(context.showError).toHaveBeenCalledWith({
+      title: 'No Aurelia template or component was provided by Test / Story.',
+      description:
+        'Add a component to the default export, or return an object with template or Component.',
+    });
+  });
 
-    const context = {
-      storyFn,
-      title: 'Test Title',
-      name: 'Test Story',
-      showMain,
-      showError,
-      storyContext: {
-        parameters: { args: { param: 'foo' } },
-        component: DummyComponent as any,
-        args: { test: 'bar' },
-      },
-      forceRemount: false,
-    } as any;
+  it('starts, settles, displays, and cleans up a story', async () => {
+    const app = fakeApp();
+    const bootstrap = vi.fn(() => app);
+    const context = renderContext(() => ({
+      template: '<p>${message}</p>',
+      props: { message: 'Story value' },
+    }));
 
-    const cleanup = await renderToCanvas(context, canvas, bootstrapSpy as any);
-    expect(showError).not.toHaveBeenCalled();
-    expect(showMain).toHaveBeenCalled();
-    expect(bootstrapSpy).toHaveBeenCalled();
+    const cleanup = await renderToCanvas(context, canvas, bootstrap);
 
+    expect(app.start).toHaveBeenCalledOnce();
+    expect(aureliaMocks.tasksSettled).toHaveBeenCalledOnce();
+    expect(context.showMain).toHaveBeenCalledOnce();
     await cleanup();
-    expect(fakeAurelia.stop).toHaveBeenCalled();
+    expect(app.stop).toHaveBeenCalledWith(true);
   });
 
-  it('updates the existing app viewModel when re-rendering without forceRemount', async () => {
-    // Create a fake Aurelia app with a mutable viewModel.
-    const fakeViewModel: Record<string, any> = {};
-    const fakeAurelia = {
-      start: jest.fn().mockResolvedValue(undefined),
-      stop: jest.fn().mockResolvedValue(undefined),
-      root: { controller: { viewModel: fakeViewModel } },
-    } as any;
-
-    const story = { template: '<div></div>', props: { test: 'initial' } } as any;
-    const storyFn = jest.fn(() => story) as any;
-    const showError = jest.fn() as any;
-    const showMain = jest.fn() as any;
-
-    const bootstrapSpy = jest.fn(() => fakeAurelia);
-
-    // First render: bootstrap the app.
-    const context = {
-      storyFn,
-      title: 'Title',
-      name: 'Name',
-      showMain,
-      showError,
-      storyContext: {
-        parameters: { args: { param: 'foo' } },
-        component: DummyComponent as any,
-        args: { test: 'bar' },
-      },
-      forceRemount: false,
-    } as any;
-    await renderToCanvas(context, canvas, bootstrapSpy as any);
-    expect(bootstrapSpy).toHaveBeenCalledTimes(1);
-
-    // Second render with new args; should update viewModel instead of re-bootstrap.
-    const newStory = { template: '<div></div>', props: { test: 'updated' } } as any;
-    storyFn.mockReturnValueOnce(newStory);
-    const newContext = {
-      ...context,
-      storyContext: {
-        ...context.storyContext,
-        parameters: { args: { param: 'baz' } },
-        args: { test: 'qux' },
-      },
-    } as any;
-    await renderToCanvas(newContext, canvas, bootstrapSpy as any);
-    expect(bootstrapSpy).toHaveBeenCalledTimes(1);
-    expect(fakeViewModel).toEqual({ param: 'baz', test: 'updated' });
-  });
-
-  it('remounts when Storybook renders a different story id in the same canvas', async () => {
-    const firstApp = {
-      start: jest.fn().mockResolvedValue(undefined),
-      stop: jest.fn().mockResolvedValue(undefined),
-      root: { controller: { viewModel: {} } },
-    } as any;
-    const secondApp = {
-      start: jest.fn().mockResolvedValue(undefined),
-      stop: jest.fn().mockResolvedValue(undefined),
-      root: { controller: { viewModel: {} } },
-    } as any;
-    const story = { template: '<div></div>' } as any;
-    const storyFn = jest.fn(() => story) as any;
-    const showError = jest.fn() as any;
-    const showMain = jest.fn() as any;
-    const bootstrapSpy = jest.fn()
-      .mockReturnValueOnce(firstApp)
-      .mockReturnValueOnce(secondApp);
-    const context = {
-      storyFn,
-      title: 'Title',
-      name: 'Name',
-      showMain,
-      showError,
-      storyContext: {
-        id: 'first',
-        parameters: {},
-        component: DummyComponent as any,
-        args: {},
-      },
-      forceRemount: false,
-    } as any;
-
-    await renderToCanvas(context, canvas, bootstrapSpy as any);
-    await renderToCanvas(
-      {
-        ...context,
-        storyContext: {
-          ...context.storyContext,
-          id: 'second',
-        },
-      } as any,
+  it('releases Aurelia controller ownership before reusing a canvas host', async () => {
+    const app = fakeApp();
+    const cleanup = await renderToCanvas(
+      renderContext(() => '<p>Hello</p>'),
       canvas,
-      bootstrapSpy as any
+      vi.fn(() => app)
     );
 
-    expect(firstApp.stop).toHaveBeenCalledTimes(1);
-    expect(secondApp.start).toHaveBeenCalledTimes(1);
-    expect(bootstrapSpy).toHaveBeenCalledTimes(2);
+    refs.set(canvas, 'au:resource:custom-element', {} as never);
+    expect(refs.get(canvas, 'au:resource:custom-element')).not.toBeNull();
+
+    await cleanup();
+
+    expect(refs.get(canvas, 'au:resource:custom-element')).toBeNull();
+  });
+
+  it('updates args without remounting and clears removed values', async () => {
+    const viewModel: Record<string, unknown> = {};
+    const app = fakeApp(viewModel);
+    const bootstrap = vi.fn(() => app);
+    const firstStory: AureliaStoryResult = {
+      template: '<p>${message}</p>',
+      props: { message: 'First', removed: 'old' },
+    };
+    const context = renderContext(() => firstStory);
+
+    await renderToCanvas(context, canvas, bootstrap);
+    context.storyFn = vi.fn(() => ({
+      template: '<p>${message}</p>',
+      props: { message: 'Second' },
+    }));
+    await renderToCanvas(context, canvas, bootstrap);
+
+    expect(bootstrap).toHaveBeenCalledOnce();
+    expect(viewModel).toEqual({ message: 'Second', removed: undefined });
+    expect(aureliaMocks.tasksSettled).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives story props precedence over args and legacy parameter args', async () => {
+    const app = fakeApp();
+    const bootstrap = vi.fn(() => app);
+    const context = renderContext(
+      () => ({ template: '<p></p>', props: { value: 'story' } }),
+      {
+        storyContext: {
+          component: undefined,
+          parameters: { args: { value: 'parameter', first: true } },
+          args: { value: 'args', second: true },
+        },
+      }
+    );
+
+    await renderToCanvas(context, canvas, bootstrap);
+
+    expect(bootstrap).toHaveBeenCalledWith(
+      expect.anything(),
+      { value: 'story', first: true, second: true },
+      canvas,
+      undefined,
+      context.storyContext
+    );
+  });
+
+  it('remounts when the story id changes', async () => {
+    const first = fakeApp();
+    const second = fakeApp();
+    const bootstrap = vi.fn()
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(second);
+    const context = renderContext(() => '<p>Hello</p>');
+
+    await renderToCanvas(context, canvas, bootstrap);
+    const next = renderContext(() => '<p>Hello</p>', { id: 'test--other' });
+    await renderToCanvas(next, canvas, bootstrap);
+
+    expect(first.stop).toHaveBeenCalledOnce();
+    expect(second.start).toHaveBeenCalledOnce();
+  });
+
+  it('remounts when structural story data changes', async () => {
+    const first = fakeApp();
+    const second = fakeApp();
+    const bootstrap = vi.fn()
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(second);
+    const context = renderContext(() => '<p>First template</p>');
+
+    await renderToCanvas(context, canvas, bootstrap);
+    context.storyFn = vi.fn(() => '<p>Second template</p>');
+    await renderToCanvas(context, canvas, bootstrap);
+
+    expect(first.stop).toHaveBeenCalledOnce();
+    expect(bootstrap).toHaveBeenCalledTimes(2);
+  });
+
+  it('remounts an automatic component story when its bound arg keys change', async () => {
+    const first = fakeApp();
+    const second = fakeApp();
+    const bootstrap = vi.fn()
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(second);
+    const Component = class {};
+    const context = renderContext(() => ({ Component, props: {} }));
+
+    await renderToCanvas(context, canvas, bootstrap);
+    context.storyFn = vi.fn(() => ({
+      Component,
+      props: { prop: 'now bound' },
+    }));
+    await renderToCanvas(context, canvas, bootstrap);
+
+    expect(first.stop).toHaveBeenCalledOnce();
+    expect(bootstrap).toHaveBeenCalledTimes(2);
+  });
+
+  it('remounts when Storybook requests it', async () => {
+    const first = fakeApp();
+    const second = fakeApp();
+    const bootstrap = vi.fn()
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(second);
+    const context = renderContext(() => '<p>Hello</p>');
+
+    await renderToCanvas(context, canvas, bootstrap);
+    context.forceRemount = true;
+    await renderToCanvas(context, canvas, bootstrap);
+
+    expect(first.stop).toHaveBeenCalledOnce();
+    expect(bootstrap).toHaveBeenCalledTimes(2);
+  });
+
+  it('serializes overlapping renders for the same canvas', async () => {
+    let finishFirstStart!: () => void;
+    const firstStartGate = new Promise<void>((resolve) => {
+      finishFirstStart = resolve;
+    });
+    const lifecycle: string[] = [];
+    const first = fakeApp();
+    first.start.mockImplementationOnce(async () => {
+      lifecycle.push('first:start');
+      await firstStartGate;
+      lifecycle.push('first:started');
+    });
+    first.stop.mockImplementationOnce(async () => {
+      lifecycle.push('first:stop');
+    });
+    const second = fakeApp();
+    second.start.mockImplementationOnce(async () => {
+      lifecycle.push('second:start');
+    });
+    const bootstrap = vi.fn()
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(second);
+    const context = renderContext(() => '<p>Hello</p>');
+
+    const firstRender = renderToCanvas(context, canvas, bootstrap);
+    await vi.waitFor(() => expect(first.start).toHaveBeenCalledOnce());
+
+    context.forceRemount = true;
+    const secondRender = renderToCanvas(context, canvas, bootstrap);
+    await Promise.resolve();
+
+    expect(bootstrap).toHaveBeenCalledOnce();
+    expect(second.start).not.toHaveBeenCalled();
+
+    finishFirstStart();
+    await firstRender;
+    await secondRender;
+
+    expect(lifecycle).toEqual([
+      'first:start',
+      'first:started',
+      'first:stop',
+      'second:start',
+    ]);
   });
 
   it('does not let stale cleanup stop a newer app', async () => {
-    const firstApp = {
-      start: jest.fn().mockResolvedValue(undefined),
-      stop: jest.fn().mockResolvedValue(undefined),
-      root: { controller: { viewModel: {} } },
-    } as any;
-    const secondApp = {
-      start: jest.fn().mockResolvedValue(undefined),
-      stop: jest.fn().mockResolvedValue(undefined),
-      root: { controller: { viewModel: {} } },
-    } as any;
-    const story = { template: '<div></div>' } as any;
-    const storyFn = jest.fn(() => story) as any;
-    const showError = jest.fn() as any;
-    const showMain = jest.fn() as any;
-    const bootstrapSpy = jest.fn()
-      .mockReturnValueOnce(firstApp)
-      .mockReturnValueOnce(secondApp);
-    const context = {
-      storyFn,
-      title: 'Title',
-      name: 'Name',
-      showMain,
-      showError,
-      storyContext: {
-        id: 'first-cleanup',
-        parameters: {},
-        component: DummyComponent as any,
-        args: {},
-      },
-      forceRemount: false,
-    } as any;
+    const first = fakeApp();
+    const second = fakeApp();
+    const bootstrap = vi.fn()
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(second);
+    const context = renderContext(() => '<p>Hello</p>');
 
-    const firstCleanup = await renderToCanvas(context, canvas, bootstrapSpy as any);
-    await renderToCanvas(
-      {
-        ...context,
-        storyContext: {
-          ...context.storyContext,
-          id: 'second-cleanup',
-        },
-      } as any,
-      canvas,
-      bootstrapSpy as any
-    );
-    await firstCleanup();
+    const staleCleanup = await renderToCanvas(context, canvas, bootstrap);
+    const next = renderContext(() => '<p>Other</p>', { id: 'test--other' });
+    await renderToCanvas(next, canvas, bootstrap);
+    await staleCleanup();
 
-    expect(firstApp.stop).toHaveBeenCalledTimes(1);
-    expect(secondApp.stop).not.toHaveBeenCalled();
+    expect(first.stop).toHaveBeenCalledOnce();
+    expect(second.stop).not.toHaveBeenCalled();
   });
 
-  it('shows an error when a custom story has neither template nor component', async () => {
-    const storyFn = jest.fn(() => ({})) as any;
-    const showError = jest.fn() as any;
-    const showMain = jest.fn() as any;
-    const cleanup = await renderToCanvas(
-      {
-        storyFn,
-        title: 'Title',
-        name: 'Name',
-        showMain,
-        showError,
-        storyContext: {
-          parameters: {},
-          component: undefined,
-          args: {},
-        },
-        forceRemount: false,
-      } as any,
-      canvas
-    );
+  it('reports exceptions thrown by the story function', async () => {
+    const error = new Error('Story failed');
+    const context = renderContext(() => {
+      throw error;
+    });
+    const bootstrap = vi.fn();
 
-    expect(showError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: 'Expecting a template or component from the story: "Name" of "Title".',
-      })
-    );
-    expect(showMain).not.toHaveBeenCalled();
-    expect(typeof cleanup).toBe('function');
+    await renderToCanvas(context, canvas, bootstrap);
+
+    expect(context.showException).toHaveBeenCalledWith(error);
+    expect(bootstrap).not.toHaveBeenCalled();
+  });
+
+  it('stops a partially started app and reports startup errors', async () => {
+    const error = new Error('Start failed');
+    const app = fakeApp();
+    app.start.mockRejectedValueOnce(error);
+    const context = renderContext(() => '<p>Hello</p>');
+
+    await renderToCanvas(context, canvas, vi.fn(() => app));
+
+    expect(app.stop).toHaveBeenCalledOnce();
+    expect(context.showException).toHaveBeenCalledWith(error);
+    expect(context.showMain).not.toHaveBeenCalled();
+  });
+
+  it('uses a story Component in preference to the meta component', async () => {
+    const StoryComponent = class {};
+    const app = fakeApp();
+    const bootstrap = vi.fn(() => app);
+    const context = renderContext(() => ({ Component: StoryComponent }));
+
+    await renderToCanvas(context, canvas, bootstrap);
+
+    expect((bootstrap.mock.calls as unknown[][])[0][3]).toBe(StoryComponent);
+  });
+
+  it('creates one managed host inside the Storybook root', async () => {
+    canvas.id = 'storybook-root';
+    const app = fakeApp();
+    const bootstrap = vi.fn(() => app);
+    const context = renderContext(() => '<p>Hello</p>');
+
+    await renderToCanvas(context, canvas, bootstrap);
+
+    const host = canvas.querySelector('.aurelia-story-container');
+    expect(host).toBeInstanceOf(HTMLElement);
+    expect((bootstrap.mock.calls as unknown[][])[0][2]).toBe(host);
   });
 });
 
 describe('createComponentTemplate', () => {
-  it('generates the correct template string', () => {
-    const DummyComponent = class {};
-    // The definition is already provided via module mocking.
+  beforeEach(() => {
+    aureliaMocks.getDefinition.mockReturnValue({
+      name: 'dummy-comp',
+      bindables: { prop: { attribute: 'prop', name: 'prop' } },
+      key: 'au:ce:dummy-comp',
+    });
+  });
 
-    const template = createComponentTemplate(DummyComponent as any, '<span>inner</span>');
-    expect(template).toBe(
-      '<dummy-comp prop.bind="prop"><span>inner</span></dummy-comp>'
+  it('binds every component bindable and keeps inner markup', () => {
+    expect(
+      createComponentTemplate(class {}, '<span>Inner</span>')
+    ).toBe(
+      '<dummy-comp prop.bind="prop"><span>Inner</span></dummy-comp>'
     );
   });
 
-  it('handles components with no bindables', () => {
-    const { CustomElement } = jest.requireMock('aurelia');
-    CustomElement.getDefinition.mockReturnValueOnce({
-      name: 'no-bindables',
-      bindables: undefined,
-    });
+  it('leaves omitted bindables unset so component defaults are preserved', () => {
+    expect(createComponentTemplate(class {}, undefined, {})).toBe(
+      '<dummy-comp></dummy-comp>'
+    );
+    expect(
+      createComponentTemplate(class {}, undefined, { prop: undefined })
+    ).toBe('<dummy-comp prop.bind="prop"></dummy-comp>');
+  });
 
-    const template = createComponentTemplate(class {} as any);
-    expect(template).toBe('<no-bindables></no-bindables>');
+  it('handles a component with no bindables', () => {
+    aureliaMocks.getDefinition.mockReturnValueOnce({
+      name: 'plain-component',
+      bindables: {},
+      key: 'au:ce:plain-component',
+    });
+    expect(createComponentTemplate(class {})).toBe(
+      '<plain-component></plain-component>'
+    );
   });
 });

@@ -80,7 +80,7 @@ export const Interactions = {
     maxVisible: 4,
     onDismiss: fn(),
   },
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
     const canvas = within(canvasElement);
     const dismissButtons = await canvas.findAllByRole('button', { name: /dismiss/i });
     await userEvent.click(dismissButtons[0]);

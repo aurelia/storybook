@@ -1,274 +1,433 @@
-import type { RenderContext, ArgsStoryFn } from './storybook-types';
+import Aurelia, { CustomElement, refs, type Constructable } from 'aurelia';
+import { tasksSettled } from '@aurelia/runtime';
 import type {
-  AureliaRenderer,
-  AureliaStoryResult,
+  ArgsStoryFn,
+  RenderContext,
+} from 'storybook/internal/types';
+import type {
+  AureliaComponent,
   AureliaParameters,
+  AureliaRenderer,
+  AureliaSetup,
   AureliaStoryContext,
+  AureliaStoryFnResult,
+  AureliaStoryResult,
 } from './types';
-import Aurelia, { Constructable, CustomElement } from 'aurelia';
 
-interface MountedAureliaApp {
-  id?: string;
-  app: any;
+interface AureliaAppLike {
+  container?: unknown;
+  root?: { controller?: { viewModel?: Record<string, unknown> } };
+  start: () => void | Promise<void>;
+  stop: (dispose?: boolean) => void | Promise<void>;
 }
 
-const appMap = new Map<HTMLElement, MountedAureliaApp>();
+interface RenderSignature {
+  id: string;
+  template?: string;
+  component?: AureliaComponent;
+  innerHtml?: string;
+  container?: unknown;
+  registrations: unknown[];
+  configureContainer?: AureliaParameters['configureContainer'];
+  configure?: AureliaParameters['configure'];
+  setupFunctions: AureliaSetup[];
+  bindingKeys: string[];
+}
 
-function mergeStoryProps(
-  parameters: { args?: Record<string, any> } | undefined,
-  storyArgs: Record<string, any> | undefined,
-  storyProps: Record<string, any> | undefined
-) {
-  return { ...parameters?.args, ...storyArgs, ...storyProps };
+interface MountedAureliaApp {
+  app: AureliaAppLike;
+  host: HTMLElement;
+  props: Set<string>;
+  signature: RenderSignature;
+}
+
+const mountedApps = new WeakMap<HTMLElement, MountedAureliaApp>();
+const setupFunctions = new Set<AureliaSetup>();
+
+const noop = () => undefined;
+const canvasOperations = new WeakMap<HTMLElement, Promise<unknown>>();
+
+async function enqueueCanvasOperation<T>(
+  canvasElement: HTMLElement,
+  operation: () => T | Promise<T>
+): Promise<T> {
+  const previous = canvasOperations.get(canvasElement) ?? Promise.resolve();
+  const current = previous.catch(noop).then(operation);
+  canvasOperations.set(canvasElement, current);
+
+  try {
+    return await current;
+  } finally {
+    if (canvasOperations.get(canvasElement) === current) {
+      canvasOperations.delete(canvasElement);
+    }
+  }
+}
+
+export function setup(callback: AureliaSetup): () => void {
+  setupFunctions.add(callback);
+  return () => setupFunctions.delete(callback);
 }
 
 function getAureliaParameters(
   storyContext?: AureliaStoryContext
 ): AureliaParameters | undefined {
   const parameters = storyContext?.parameters?.aurelia;
-  if (!parameters || typeof parameters !== 'object') {
-    return undefined;
-  }
-  return parameters as AureliaParameters;
+  return parameters && typeof parameters === 'object'
+    ? (parameters as AureliaParameters)
+    : undefined;
 }
 
-function normalizeRegistrations(
-  parameters: AureliaParameters | undefined
+function uniqueResources(resources: unknown[]): unknown[] {
+  return [...new Set(resources.filter(Boolean))];
+}
+
+function collectRegistrations(
+  story: AureliaStoryResult,
+  parameters: AureliaParameters | undefined,
+  component: AureliaComponent | undefined
 ): unknown[] {
-  if (!parameters) {
-    return [];
-  }
-
-  const register = Array.isArray(parameters.register) ? parameters.register : [];
-  const components = Array.isArray(parameters.components) ? parameters.components : [];
-  const items = Array.isArray(parameters.items) ? parameters.items : [];
-
-  return [...register, ...components, ...items].filter(Boolean);
+  return uniqueResources([
+    ...(parameters?.register ?? []),
+    ...(parameters?.components ?? []),
+    ...(parameters?.items ?? []),
+    ...(story.register ?? []),
+    ...(story.components ?? []),
+    ...(story.items ?? []),
+  ]).filter((resource) => resource !== component);
 }
 
-async function teardown(element: HTMLElement, expectedApp?: any) {
-  const mounted = appMap.get(element);
-  if (!mounted) {
+function mergeStoryProps(
+  context: AureliaStoryContext,
+  story: AureliaStoryResult
+): Record<string, unknown> {
+  const legacyParameterArgs = context.parameters?.args;
+  return {
+    ...(legacyParameterArgs && typeof legacyParameterArgs === 'object'
+      ? legacyParameterArgs
+      : {}),
+    ...context.args,
+    ...story.props,
+  };
+}
+
+function normalizeStoryResult(
+  result: AureliaStoryFnResult | null | undefined
+): AureliaStoryResult | undefined {
+  if (typeof result === 'string') {
+    return { template: result };
+  }
+  if (typeof result === 'function' && CustomElement.isType(result)) {
+    return { Component: result as AureliaComponent };
+  }
+  if (result && typeof result === 'object') {
+    return result;
+  }
+  return undefined;
+}
+
+function sameReferences(left: unknown[], right: unknown[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
+}
+
+function sameSignature(left: RenderSignature, right: RenderSignature): boolean {
+  return (
+    left.id === right.id &&
+    left.template === right.template &&
+    left.component === right.component &&
+    left.innerHtml === right.innerHtml &&
+    left.container === right.container &&
+    left.configureContainer === right.configureContainer &&
+    left.configure === right.configure &&
+    sameReferences(left.registrations, right.registrations) &&
+    sameReferences(left.setupFunctions, right.setupFunctions) &&
+    sameReferences(left.bindingKeys, right.bindingKeys)
+  );
+}
+
+function resolveHost(canvasElement: HTMLElement): HTMLElement {
+  if (canvasElement.id !== 'storybook-root') {
+    return canvasElement;
+  }
+
+  let host = canvasElement.querySelector<HTMLElement>(
+    ':scope > .aurelia-story-container'
+  );
+  if (!host) {
+    host = document.createElement('div');
+    host.className = 'aurelia-story-container';
+    host.style.height = '100%';
+    canvasElement.append(host);
+  }
+  return host;
+}
+
+async function stopApp(app: AureliaAppLike | undefined): Promise<void> {
+  if (app?.stop) {
+    // A stopped AppRoot still owns its host controller unless it is disposed.
+    // Storybook reuses the same canvas host across toolbar-triggered remounts.
+    await app.stop(true);
+  }
+}
+
+async function teardown(
+  canvasElement: HTMLElement,
+  expected?: AureliaAppLike
+): Promise<void> {
+  const mounted = mountedApps.get(canvasElement);
+  if (!mounted || (expected && mounted.app !== expected)) {
     return;
   }
 
-  if (expectedApp && mounted.app !== expectedApp) {
+  mountedApps.delete(canvasElement);
+  try {
+    await stopApp(mounted.app);
+  } finally {
+    refs.clear(mounted.host);
+    mounted.host.replaceChildren();
+  }
+}
+
+function reportException(
+  context: RenderContext<AureliaRenderer>,
+  error: unknown
+): void {
+  const exception = error instanceof Error ? error : new Error(String(error));
+  if (typeof context.showException === 'function') {
+    context.showException(exception);
     return;
   }
+  context.showError({ title: exception.name, description: exception.message });
+}
 
-  appMap.delete(element);
-
-  if (typeof mounted.app?.stop === 'function') {
-    await mounted.app.stop();
+function updateViewModel(
+  mounted: MountedAureliaApp,
+  nextProps: Record<string, unknown>
+): void {
+  const viewModel = mounted.app.root?.controller?.viewModel;
+  if (!viewModel) {
+    throw new Error('The running Aurelia story has no root view model to update.');
   }
+
+  for (const key of mounted.props) {
+    if (!(key in nextProps)) {
+      viewModel[key] = undefined;
+    }
+  }
+  Object.assign(viewModel, nextProps);
+  mounted.props = new Set(Object.keys(nextProps));
 }
 
 export const render: ArgsStoryFn<AureliaRenderer> = (args, context) => {
-  const { id, component: Component } = context;
-  
+  const Component = context.component;
   if (!Component) {
-    const label = context.title && context.name ? `${context.title} / ${context.name}` : id;
+    const label = context.title && context.name
+      ? `${context.title} / ${context.name}`
+      : context.id;
     throw new Error(
-      `Unable to render story ${label} as the component annotation is missing from the default export`
+      `Unable to render ${label}: add a component to the default export or provide a story render function.`
     );
   }
   return { Component, props: args };
 };
 
-export async function renderToCanvas(
-  {
-    storyFn,
-    title,
-    name,
-    showMain,
-    showError,
-    storyContext,
-    forceRemount,
-  }: RenderContext<AureliaRenderer>,
+async function performRenderToCanvas(
+  context: RenderContext<AureliaRenderer>,
   canvasElement: HTMLElement,
-  bootstrapAppFn?: typeof createAureliaApp
-) {
-  // Store reference to the original storybook root element
-  const rootElement = canvasElement;
+  bootstrapApp: typeof createAureliaApp = createAureliaApp
+): Promise<() => Promise<void> | void> {
+  const host = resolveHost(canvasElement);
+  let story: AureliaStoryResult | undefined;
 
-  // Ensure we have (or create) a single container inside the root where the Aurelia app actually renders
-  let hostElement: HTMLElement;
-  if (rootElement.id === 'storybook-root') {
-    hostElement = rootElement.querySelector('.aurelia-story-container') as HTMLElement;
-    if (!hostElement) {
-      hostElement = document.createElement('div');
-      hostElement.className = 'aurelia-story-container';
-      hostElement.style.height = '100%';
-      rootElement.appendChild(hostElement);
-    }
-  } else {
-    hostElement = rootElement;
+  try {
+    story = normalizeStoryResult(context.storyFn());
+  } catch (error) {
+    reportException(context, error);
+    return noop;
   }
 
-  // All app instances are now tracked by the *root* element, ensuring we only ever have one per story iframe
-  const appBootstrapFn = bootstrapAppFn ?? createAureliaApp;
-  const { parameters, component, args } = storyContext;
-  const storyId = storyContext.id ?? `${title}--${name}`;
-  
-  const mounted = appMap.get(rootElement);
-  let app = mounted?.app;
-  const story = storyFn() as AureliaStoryResult;
-  
   if (!story) {
-    showError({
-      title: `Expecting an Aurelia component from the story: "${name}" of "${title}".`,
-      description: `
-        Did you forget to return the Aurelia component from the story?
-        Use "() => ({ template: '<custom-component></custom-component>' })" when defining the story.
-      `,
+    context.showError({
+      title: `Nothing was returned by ${context.title} / ${context.name}.`,
+      description:
+        'Return Aurelia markup, a custom element, or an object with a template or Component.',
     });
-    return () => {};
+    return noop;
   }
 
-  if (!component && !story.template) {
-    showError({
-      title: `Expecting a template or component from the story: "${name}" of "${title}".`,
-      description: `
-        Provide a component on the default export or return "{ template: '<custom-component></custom-component>' }" from the story.
-      `,
+  const component = (story.Component ??
+    context.storyContext.component) as AureliaComponent | undefined;
+  if (story.template == null && !component) {
+    context.showError({
+      title: `No Aurelia template or component was provided by ${context.title} / ${context.name}.`,
+      description:
+        'Add a component to the default export, or return an object with template or Component.',
     });
-    return () => {};
+    return noop;
   }
 
-  showMain();
-
-  const shouldRemount = !app || forceRemount || mounted?.id !== storyId;
-
-  if (shouldRemount) {
-    if (forceRemount && app) {
-      await teardown(rootElement, app);
-      app = undefined;
-    }
-    if (mounted?.id !== storyId && app) {
-      await teardown(rootElement, app);
-      app = undefined;
-    }
-
-    // Clear container before mounting new app
-    hostElement.innerHTML = '';
-
-    const mergedProps = mergeStoryProps(parameters, args, story.props);
-
-    const aureliaApp = appBootstrapFn(
-      story,
-      mergedProps,
-      hostElement,
-      component as Constructable,
-      storyContext
-    );
-    await aureliaApp.start();
-    appMap.set(rootElement, { id: storyId, app: aureliaApp });
-    app = aureliaApp;
-  } else {
-    // update existing app props
-    const mergedProps = mergeStoryProps(parameters, args, story.props);
-    if (app?.root?.controller?.viewModel) {
-      Object.assign(app.root.controller.viewModel, mergedProps);
-    }
-  }
-
-  // Return cleanup fn
-  const appForCleanup = app;
-  return async () => {
-    await teardown(rootElement, appForCleanup);
+  const parameters = getAureliaParameters(context.storyContext);
+  const props = mergeStoryProps(context.storyContext, story);
+  const signature: RenderSignature = {
+    id: context.id,
+    template: story.template,
+    component,
+    innerHtml: story.innerHtml,
+    container: story.container,
+    registrations: collectRegistrations(story, parameters, component),
+    configureContainer: parameters?.configureContainer,
+    configure: parameters?.configure,
+    setupFunctions: [...setupFunctions],
+    bindingKeys:
+      story.template == null && component
+        ? getComponentBindingKeys(component, props)
+        : [],
   };
+  const mounted = mountedApps.get(canvasElement);
+  const shouldRemount =
+    !mounted || context.forceRemount || !sameSignature(mounted.signature, signature);
+
+  if (!shouldRemount && mounted) {
+    try {
+      updateViewModel(mounted, props);
+      await tasksSettled();
+      context.showMain();
+      return () => teardown(canvasElement, mounted.app);
+    } catch (error) {
+      await teardown(canvasElement, mounted.app);
+      reportException(context, error);
+      return noop;
+    }
+  }
+
+  if (mounted) {
+    await teardown(canvasElement, mounted.app);
+  }
+  host.replaceChildren();
+
+  let app: AureliaAppLike | undefined;
+  try {
+    app = bootstrapApp(
+      story,
+      props,
+      host,
+      component,
+      context.storyContext
+    );
+    for (const configure of signature.setupFunctions) {
+      await configure(app as Aurelia, context.storyContext);
+    }
+    await app.start();
+    await tasksSettled();
+    mountedApps.set(canvasElement, {
+      app,
+      host,
+      props: new Set(Object.keys(props)),
+      signature,
+    });
+    context.showMain();
+  } catch (error) {
+    try {
+      await stopApp(app);
+    } finally {
+      host.replaceChildren();
+    }
+    reportException(context, error);
+    return noop;
+  }
+
+  const appForCleanup = app;
+  return () => teardown(canvasElement, appForCleanup);
+}
+
+export async function renderToCanvas(
+  context: RenderContext<AureliaRenderer>,
+  canvasElement: HTMLElement,
+  bootstrapApp: typeof createAureliaApp = createAureliaApp
+): Promise<() => Promise<void>> {
+  const cleanup = await enqueueCanvasOperation(canvasElement, () =>
+    performRenderToCanvas(context, canvasElement, bootstrapApp)
+  );
+  return () =>
+    enqueueCanvasOperation(canvasElement, async () => {
+      await cleanup();
+    });
 }
 
 export function createAureliaApp(
   story: AureliaStoryResult,
-  args: Record<string, any>,
+  args: Record<string, unknown>,
   domElement: HTMLElement,
   component?: Constructable,
   storyContext?: AureliaStoryContext
-) {
+): AureliaAppLike {
   const aurelia = new Aurelia(story.container);
-  const { container } = aurelia;
-  const aureliaParameters = getAureliaParameters(storyContext);
+  const parameters = getAureliaParameters(storyContext);
 
-  const registerIfNeeded = (resource: unknown) => {
-    if (!resource) {
-      return;
-    }
+  parameters?.configureContainer?.(aurelia.container, storyContext!);
 
+  const register = (resource: unknown) => {
     if (CustomElement.isType(resource)) {
       const definition = CustomElement.getDefinition(resource);
-      if (container.has(definition.key, false)) {
+      if (aurelia.container.has(definition.key, false)) {
         return;
       }
     }
-
     aurelia.register(resource);
   };
 
-  const registerAll = (resources?: unknown[]) => {
-    if (!resources?.length) {
-      return;
-    }
-
-    for (const resource of resources) {
-      registerIfNeeded(resource);
-    }
-  };
-
-  if (aureliaParameters?.configureContainer && storyContext) {
-    aureliaParameters.configureContainer(container, storyContext);
+  for (const resource of collectRegistrations(story, parameters, component)) {
+    register(resource);
   }
 
-  registerAll(normalizeRegistrations(aureliaParameters));
-  registerAll(story.items);
-
-  const storyComponents = (story.components ?? []).filter(Boolean);
-  const dedupedComponents = component
-    ? storyComponents.filter((entry) => entry !== component)
-    : storyComponents;
-
-  for (const entry of dedupedComponents) {
-    registerIfNeeded(entry);
-  }
-
-  let { template } = story;
-
+  let template = story.template;
   if (component) {
-    template = template ?? createComponentTemplate(component, story.innerHtml);
-    registerIfNeeded(component);
+    template ??= createComponentTemplate(component, story.innerHtml, args);
+    register(component);
   }
 
-  const App = CustomElement.define(
+  const StoryHost = CustomElement.define(
     {
-      name: 'sb-app',
-      template,
-      containerless: true,
+      name: 'sb-aurelia-story',
+      template: template ?? '',
     },
     class {}
   );
+  const viewModel = Object.assign(new StoryHost(), args);
 
-  const app = Object.assign(new App(), args);
+  parameters?.configure?.(aurelia, storyContext!);
 
-  if (aureliaParameters?.configure && storyContext) {
-    aureliaParameters.configure(aurelia, storyContext);
-  }
-
-  return aurelia.app({
-    host: domElement,
-    component: app,
-  });
+  return aurelia.app({ host: domElement, component: viewModel }) as AureliaAppLike;
 }
 
 export function createComponentTemplate(
   component: Constructable,
-  innerHtml?: string
+  innerHtml?: string,
+  props?: Record<string, unknown>
 ): string {
-  const def = CustomElement.getDefinition(component);
-
-  const bindings = Object.values(def.bindables ?? {})
+  const definition = CustomElement.getDefinition(component);
+  const bindings = Object.values(definition.bindables ?? {})
+    .filter(
+      (bindable) =>
+        props == null || Object.prototype.hasOwnProperty.call(props, bindable.name)
+    )
     .map((bindable) => `${bindable.attribute}.bind="${bindable.name}"`)
     .join(' ');
-  const bindingAttributes = bindings ? ` ${bindings}` : '';
-
-  return `<${def.name}${bindingAttributes}>${innerHtml ?? ''}</${def.name}>`;
+  return `<${definition.name}${bindings ? ` ${bindings}` : ''}>${innerHtml ?? ''}</${definition.name}>`;
 }
+
+function getComponentBindingKeys(
+  component: Constructable,
+  props: Record<string, unknown>
+): string[] {
+  const definition = CustomElement.getDefinition(component);
+  return Object.values(definition.bindables ?? {})
+    .filter((bindable) => Object.prototype.hasOwnProperty.call(props, bindable.name))
+    .map((bindable) => bindable.name)
+    .sort();
+}
+
+export { normalizeStoryResult };

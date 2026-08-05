@@ -1,115 +1,142 @@
-import { rsbuildFinal, webpackFinal, viteFinal } from '../src/preset';
+import {
+  previewAnnotations,
+  rsbuildFinal,
+  viteFinal,
+  webpackFinal,
+} from '../src/preset';
 import { getRsbuildRules, getRules } from '../src/webpack';
 
-jest.mock('../src/webpack', () => ({
-  getRules: jest.fn(() => [
-    { test: /\.ts$/, use: 'ts-loader' },
-    { test: /\.html$/, use: 'html-loader' },
+const presetMocks = vi.hoisted(() => ({
+  mergeRsbuildConfig: vi.fn((base: Record<string, unknown>, extra: Record<string, unknown>) => ({
+    ...base,
+    ...extra,
+    tools: {
+      ...((base.tools as Record<string, unknown> | undefined) ?? {}),
+      ...((extra.tools as Record<string, unknown> | undefined) ?? {}),
+    },
+  })),
+  aureliaPlugin: vi.fn(() => [
+    { name: 'aurelia:dev-alias' },
+    { name: 'au2' },
   ]),
-  getRsbuildRules: jest.fn(() => [
-    { test: /\.ts$/, use: '@aurelia/webpack-loader' },
-    { test: /\.html$/, use: '@aurelia/webpack-loader' },
-  ]),
 }));
 
-const mergeRsbuildConfig = jest.fn((base, extra) => ({
-  ...base,
-  ...extra,
-  tools: {
-    ...base?.tools,
-    ...extra?.tools,
-  },
+vi.mock('@rsbuild/core', () => ({
+  mergeRsbuildConfig: presetMocks.mergeRsbuildConfig,
 }));
 
-jest.mock('@rsbuild/core', () => ({
-  mergeRsbuildConfig,
+vi.mock('@aurelia/vite-plugin', () => ({
+  default: presetMocks.aureliaPlugin,
 }));
 
-describe('preset', () => {
-  describe('webpackFinal', () => {
-    it('should add rules to the webpack config', async () => {
-      const config = {
-        module: {
-          rules: [],
-        },
-      };
-      const result = await webpackFinal(config);
-      expect(result.module.rules).toEqual(getRules());
-      expect(getRules).toHaveBeenCalled();
-    });
-
-    it('should create module.rules when they are missing', async () => {
-      const config = {};
-      const result = await webpackFinal(config);
-      expect(result.module.rules).toEqual(getRules());
-    });
-
-    it('should handle a config with existing rules', async () => {
-      const existingRule = { test: /\.js$/, use: 'babel-loader' };
-      const config = {
-        module: {
-          rules: [existingRule],
-        },
-      };
-      const result = await webpackFinal(config);
-      expect(result.module.rules).toEqual([existingRule, ...getRules()]);
-    });
-
-    it('does not add duplicate Aurelia rules', async () => {
-      const [tsRule] = getRules();
-      const config = {
-        module: {
-          rules: [tsRule],
-        },
-      };
-
-      const result = await webpackFinal(config);
-      expect(result.module.rules).toEqual(getRules());
-    });
+describe('webpackFinal', () => {
+  it('creates module.rules and adds the Aurelia rules', async () => {
+    const config = await webpackFinal({});
+    expect(config.module.rules).toEqual(getRules());
   });
 
-  describe('viteFinal', () => {
-    it('should add Aurelia preview defaults', async () => {
-      const config = {
+  it('keeps existing rules and avoids duplicate loader rules', async () => {
+    const [typescriptRule] = getRules();
+    const existing = { test: /\.css$/, use: 'css-loader' };
+    const config = await webpackFinal({
+      module: { rules: [existing, typescriptRule] },
+    });
+    expect(config.module.rules).toEqual([existing, ...getRules()]);
+  });
+});
+
+describe('viteFinal', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITEST', '');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('installs the Aurelia plugin and safe dependency defaults', async () => {
+    const config = await viteFinal(
+      {
         define: { existing: 'true' },
-        optimizeDeps: { exclude: ['existing-dep'] },
-      };
-      const result = await viteFinal(config);
-      expect(result).toBe(config);
-      expect(result.define).toEqual({
-        existing: 'true',
-        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
-      });
-      expect(result.optimizeDeps.exclude).toEqual(['existing-dep', '@aurelia/runtime-html']);
-    });
+        optimizeDeps: { exclude: ['existing-dependency'] },
+        resolve: { dedupe: ['existing-package'] },
+      },
+      { configType: 'PRODUCTION' }
+    );
 
-    it('does not duplicate optimizeDeps exclusions', async () => {
-      const config = {
-        optimizeDeps: { exclude: ['@aurelia/runtime-html'] },
-      };
-      const result = await viteFinal(config);
-      expect(result.optimizeDeps.exclude).toEqual(['@aurelia/runtime-html']);
-    });
+    expect(presetMocks.aureliaPlugin).toHaveBeenCalledWith({ useDev: false });
+    expect(config.define.existing).toBe('true');
+    expect(config.optimizeDeps.exclude).toEqual([
+      'existing-dependency',
+      'aurelia',
+      '@aurelia/expression-parser',
+      '@aurelia/kernel',
+      '@aurelia/metadata',
+      '@aurelia/platform',
+      '@aurelia/platform-browser',
+      '@aurelia/runtime',
+      '@aurelia/runtime-html',
+      '@aurelia/template-compiler',
+    ]);
+    expect(config.resolve.dedupe).toEqual([
+      'existing-package',
+      'aurelia',
+      '@aurelia/expression-parser',
+      '@aurelia/kernel',
+      '@aurelia/metadata',
+      '@aurelia/platform',
+      '@aurelia/platform-browser',
+      '@aurelia/runtime',
+      '@aurelia/runtime-html',
+      '@aurelia/template-compiler',
+    ]);
   });
 
-  describe('rsbuildFinal', () => {
-    it('should merge rsbuild config and add Aurelia rules', async () => {
-      const config = { tools: {} };
-      const result = await rsbuildFinal(config);
-      expect(mergeRsbuildConfig).toHaveBeenCalledWith(config, expect.any(Object));
-
-      const rspackConfig = { module: { rules: [] as any[] } };
-      result.tools.rspack(rspackConfig);
-      expect(rspackConfig.module.rules).toEqual(getRsbuildRules());
+  it('does not install a second Aurelia plugin', async () => {
+    await viteFinal({
+      plugins: [[{ name: 'aurelia:dev-alias' }, { name: 'au2' }]],
+      optimizeDeps: { exclude: ['@aurelia/runtime-html'] },
+      resolve: { dedupe: ['aurelia'] },
     });
 
-    it('does not add duplicate rsbuild rules', async () => {
-      const config = { tools: {} };
-      const result = await rsbuildFinal(config);
-      const [tsRule] = getRsbuildRules();
-      const rspackConfig = { module: { rules: [tsRule] as any[] } };
-      result.tools.rspack(rspackConfig);
-      expect(rspackConfig.module.rules).toEqual(getRsbuildRules());
+    expect(presetMocks.aureliaPlugin).not.toHaveBeenCalled();
+  });
+
+  it('does not inject a duplicate plugin into Storybook Vitest projects', async () => {
+    vi.stubEnv('VITEST', 'true');
+
+    const config = await viteFinal({});
+
+    expect(presetMocks.aureliaPlugin).not.toHaveBeenCalled();
+    expect(config.optimizeDeps.exclude).toContain('@aurelia/runtime-html');
+    expect(config.resolve.dedupe).toContain('aurelia');
+  });
+});
+
+describe('rsbuildFinal', () => {
+  it('merges an Rspack hook that adds Aurelia rules once', async () => {
+    const result = await rsbuildFinal({ tools: {} });
+    const rspack = (result.tools as { rspack: (config: Record<string, unknown>) => void }).rspack;
+    const config = { module: { rules: [getRsbuildRules()[0]] } };
+    rspack(config);
+    expect(config.module.rules).toEqual(getRsbuildRules());
+  });
+});
+
+describe('previewAnnotations', () => {
+  it('always adds the renderer annotation', async () => {
+    const annotations = await previewAnnotations(['/existing.js']);
+    expect(annotations[0]).toBe('/existing.js');
+    expect(annotations.at(-1)).toMatch(/preview\.js$/);
+  });
+
+  it('adds the docs annotation when docs are configured', async () => {
+    const annotations = await previewAnnotations([], {
+      presets: {
+        apply: vi.fn(async () => ({ defaultName: 'docs' })),
+      },
     });
+    expect(annotations).toHaveLength(2);
+    expect(annotations[1]).toMatch(/preview-docs\.js$/);
   });
 });
