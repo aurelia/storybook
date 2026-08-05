@@ -83,6 +83,8 @@
   "devDependencies": {
     "@aurelia/webpack-loader": "^2.0.0-rc.2",
     "@aurelia/vite-plugin": "^2.0.0-rc.2",
+    "@emnapi/core": "1.11.3",
+    "@emnapi/runtime": "1.11.3",
     "@eslint/js": "^10.0.1",
     "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-node-resolve": "^16.0.3",
