@@ -9,11 +9,11 @@ The framework works with Vite, Webpack 5, and Rsbuild/Rspack. You set `component
 | Part | Supported version |
 | --- | --- |
 | Aurelia | `2.0.0-rc.2` |
-| Storybook | `10.5.x` |
+| Storybook | `10.5.6` or newer `10.x` (tested with `10.6`) |
 | Node.js | `^20.19.0` or `>=22.12.0` |
-| Vite builder | Vite `7.x` or `8.x` and `@storybook/builder-vite` `10.5.x` |
-| Webpack builder | `@storybook/builder-webpack5` `10.5.x` |
-| Rsbuild builder | Rsbuild `2.x` and `storybook-builder-rsbuild` `3.4.x` |
+| Vite builder | Vite `7.x` or `8.x` and `@storybook/builder-vite` `10.x` |
+| Webpack builder | `@storybook/builder-webpack5` `10.x` |
+| Rsbuild builder | Rsbuild `2.x` and `storybook-builder-rsbuild` `3.4.0` or newer `3.x` |
 
 Aurelia `2.0.0-rc.2` supports Vite 8's Oxc pipeline, including TC39 decorators. No extra Babel or SWC configuration is required.
 
@@ -421,11 +421,29 @@ npm run lint:examples
 npm run typecheck:examples
 npm run test:examples
 npm run build:examples
+npm run test:storybook-dev
 npm run build:storybooks
 npm run test:storybook
+npm run test:e2e
+npm run verify:package
 ```
 
-`npm run test:storybook` requires a Chromium binary. Install it with `npx playwright install chromium` if Playwright has not already done so.
+`npm run test:storybook` and `npm run test:e2e` require a Chromium binary. Install it with `npx playwright install chromium` if Playwright has not already done so.
+
+### Tests
+
+| Command | Covers |
+| --- | --- |
+| `npm test` | Unit tests for the renderer, presets, and types in jsdom |
+| `npm run test:examples` | Unit tests for the example apps |
+| `npm run test:storybook-dev` | Each builder's Storybook dev server starts (`--smoke-test`) |
+| `npm run test:storybook` | Every Vite example story in Chromium through Storybook's Vitest addon |
+| `npm run test:e2e` | Playwright tests against the built Storybook of every builder |
+| `npm run verify:package` | The published tarball contains every entry point |
+
+The e2e suite lives in `e2e/` and runs each spec once per builder. It renders every story and waits for its play function, then checks live arg updates, remounts, globals, story switching, autodocs, MDX, and the controls panel in the full Storybook UI. Build the package and the Storybooks first (`npm run build && npm run build:storybooks`).
+
+Run one builder with `npm run test:e2e -- --project webpack`, or debug with `npm run test:e2e -- --ui`.
 
 ## License
 

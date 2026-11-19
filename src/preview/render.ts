@@ -111,7 +111,7 @@ function mergeStoryProps(
   };
 }
 
-function normalizeStoryResult(
+export function normalizeStoryResult(
   result: AureliaStoryFnResult | null | undefined
 ): AureliaStoryResult | undefined {
   if (typeof result === 'string') {
@@ -409,25 +409,29 @@ export function createComponentTemplate(
   props?: Record<string, unknown>
 ): string {
   const definition = CustomElement.getDefinition(component);
-  const bindings = Object.values(definition.bindables ?? {})
-    .filter(
-      (bindable) =>
-        props == null || Object.prototype.hasOwnProperty.call(props, bindable.name)
-    )
-    .map((bindable) => `${bindable.attribute}.bind="${bindable.name}"`)
-    .join(' ');
-  return `<${definition.name}${bindings ? ` ${bindings}` : ''}>${innerHtml ?? ''}</${definition.name}>`;
+  const { name } = definition;
+  const bindings = getBoundBindables(definition, props)
+    .map((bindable) => ` ${bindable.attribute}.bind="${bindable.name}"`)
+    .join('');
+  return `<${name}${bindings}>${innerHtml ?? ''}</${name}>`;
+}
+
+/** Bindables present in `props`, or every bindable when no props are given. */
+function getBoundBindables(
+  definition: ReturnType<typeof CustomElement.getDefinition>,
+  props?: Record<string, unknown>
+) {
+  const bindables = Object.values(definition.bindables ?? {});
+  return props == null
+    ? bindables
+    : bindables.filter((bindable) => Object.hasOwn(props, bindable.name));
 }
 
 function getComponentBindingKeys(
   component: Constructable,
   props: Record<string, unknown>
 ): string[] {
-  const definition = CustomElement.getDefinition(component);
-  return Object.values(definition.bindables ?? {})
-    .filter((bindable) => Object.prototype.hasOwnProperty.call(props, bindable.name))
+  return getBoundBindables(CustomElement.getDefinition(component), props)
     .map((bindable) => bindable.name)
     .sort();
 }
-
-export { normalizeStoryResult };

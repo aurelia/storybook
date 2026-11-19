@@ -1,97 +1,68 @@
-const fs = require('fs');
-const path = require('path');
+// Keeps the example apps aligned with the root package: same version, the local
+// `file:../..` framework link, and the same range for every shared dependency.
+// Run with `--check` to report drift without writing.
+const fs = require('node:fs');
+const path = require('node:path');
 
 const checkOnly = process.argv.includes('--check');
-
 const rootPath = path.resolve(__dirname, '..');
-const rootPkgPath = path.join(rootPath, 'package.json');
-const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, 'utf8'));
-const version = rootPkg.version;
-const desiredStorybookDependency = 'file:../..';
+const rootPkg = readJson(path.join(rootPath, 'package.json'));
+const frameworkName = rootPkg.name;
+const frameworkLink = 'file:../..';
+const rootRanges = { ...rootPkg.dependencies, ...rootPkg.devDependencies };
+const dependencyFields = ['dependencies', 'devDependencies', 'peerDependencies'];
 
-const exampleDirs = [
-  'apps/hello-world',
-  'apps/hello-world-webpack',
-  'apps/hello-world-rsbuild',
-];
+const exampleDirs = fs
+  .readdirSync(path.join(rootPath, 'apps'), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => path.join('apps', entry.name))
+  .filter((dir) => fs.existsSync(path.join(rootPath, dir, 'package.json')));
 
-let failed = false;
-
-function markOutOfSync(message) {
-  if (checkOnly) {
-    console.error(message);
-    failed = true;
-  }
+function readJson(file) {
+  return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-function verifyPackageLock(dir, pkg) {
-  if (!checkOnly) {
-    return;
-  }
-
-  const lockPath = path.join(rootPath, dir, 'package-lock.json');
-  if (!fs.existsSync(lockPath)) {
-    return;
-  }
-
-  const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
-  const rootPackage = lock.packages?.[''];
-
-  if (!rootPackage) {
-    markOutOfSync(`${dir}/package-lock.json is missing root package metadata.`);
-    return;
-  }
-
-  if (rootPackage.version !== pkg.version) {
-    markOutOfSync(
-      `${dir}/package-lock.json version (${rootPackage.version}) does not match package.json (${pkg.version}).`
-    );
-  }
-
-  const lockedStorybookDependency = rootPackage.devDependencies?.['@aurelia/storybook'];
-  if (lockedStorybookDependency && lockedStorybookDependency !== desiredStorybookDependency) {
-    markOutOfSync(
-      `${dir}/package-lock.json uses @aurelia/storybook ${lockedStorybookDependency}; expected ${desiredStorybookDependency}.`
-    );
-  }
-}
+const problems = [];
 
 for (const dir of exampleDirs) {
   const pkgPath = path.join(rootPath, dir, 'package.json');
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+  const pkg = readJson(pkgPath);
   let changed = false;
 
-  if (pkg.version !== version) {
-    if (checkOnly) {
-      failed = true;
-    } else {
-      pkg.version = version;
+  const align = (owner, key, desired, label) => {
+    if (owner[key] === desired) {
+      return;
+    }
+    problems.push(`${dir}: ${label} is ${owner[key]}, expected ${desired}`);
+    if (!checkOnly) {
+      owner[key] = desired;
       changed = true;
     }
-  }
+  };
 
-  for (const depKey of ['dependencies', 'devDependencies', 'peerDependencies']) {
-    if (pkg[depKey] && pkg[depKey]['@aurelia/storybook']) {
-      const desired = desiredStorybookDependency;
-      if (pkg[depKey]['@aurelia/storybook'] !== desired) {
-        if (checkOnly) {
-          failed = true;
-        } else {
-          pkg[depKey]['@aurelia/storybook'] = desired;
-          changed = true;
-        }
+  align(pkg, 'version', rootPkg.version, 'version');
+
+  for (const field of dependencyFields) {
+    for (const name of Object.keys(pkg[field] ?? {})) {
+      if (name === frameworkName) {
+        align(pkg[field], name, frameworkLink, name);
+      } else if (rootRanges[name]) {
+        align(pkg[field], name, rootRanges[name], name);
       }
     }
   }
 
-  verifyPackageLock(dir, pkg);
-
-  if (!checkOnly && changed) {
+  if (changed) {
     fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
   }
 }
 
-if (checkOnly && failed) {
-  console.error('Example app versions are out of sync with root package.json.');
-  process.exit(1);
+if (problems.length > 0) {
+  const log = checkOnly ? console.error : console.log;
+  log(problems.join('\n'));
+  if (checkOnly) {
+    console.error('Example apps are out of sync with the root package.json. Run `npm run sync:versions`.');
+    process.exit(1);
+  }
+  console.log('Example apps updated. Run `npm install` to refresh the lockfile.');
 }

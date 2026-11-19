@@ -58,7 +58,7 @@ jobs:
         run: npm test
 
       - name: Verify package contents
-        run: npm pack --dry-run
+        run: npm run verify:package
 
       - name: Verify changelog exists
         run: |

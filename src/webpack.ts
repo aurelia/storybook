@@ -1,10 +1,6 @@
-// src/webpack.ts
 import type { RuleSetRule } from 'webpack';
 
-/**
- * A set of rules to be added to the webpack configuration.
- * @returns
- */
+/** Webpack 5 rules that compile Aurelia TypeScript and HTML templates. */
 export function getRules(): RuleSetRule[] {
   return [
     {
@@ -20,9 +16,7 @@ export function getRules(): RuleSetRule[] {
   ];
 }
 
-/**
- * Rsbuild/Rspack rules (avoid ts-loader; Rsbuild handles TS transpilation).
- */
+/** Rspack rules for Rsbuild, which transpiles TypeScript itself so `ts-loader` is not needed. */
 export function getRsbuildRules(): RuleSetRule[] {
   return [
     {

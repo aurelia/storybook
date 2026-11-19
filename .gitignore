@@ -132,3 +132,7 @@ dist
 .pnp.*
 
 storybook-static/
+
+# Playwright
+test-results/
+playwright-report/

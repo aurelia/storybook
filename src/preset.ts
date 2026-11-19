@@ -40,10 +40,7 @@ function ruleKey(rule: Record<string, unknown>): string {
   return `${String(rule.test)}::${loaderNames(rule)}::${String(rule.enforce ?? '')}`;
 }
 
-function appendUniqueRules(
-  existing: any[],
-  rules: any[]
-): any[] {
+function appendUniqueRules(existing: any[], rules: any[]): void {
   const seen = new Set(existing.map((rule) => ruleKey(rule)));
   for (const rule of rules) {
     const key = ruleKey(rule);
@@ -52,7 +49,23 @@ function appendUniqueRules(
       seen.add(key);
     }
   }
-  return existing;
+}
+
+/** Imports an optional peer, naming the builder that needs it when it is missing. */
+async function importPeer<T>(
+  load: () => Promise<T>,
+  packageName: string,
+  builder: string
+): Promise<T> {
+  try {
+    return await load();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `@aurelia/storybook needs ${packageName} when used with the ${builder} builder. ${message}`,
+      { cause: error }
+    );
+  }
 }
 
 function pluginNames(plugins: unknown[] | undefined): string[] {
@@ -78,59 +91,46 @@ export async function viteFinal(
   // adding it again here transforms convention templates twice.
   const isVitest = process.env.VITEST === 'true';
   if (!hasAureliaPlugin && !isVitest) {
-    try {
-      const { default: aurelia } = await import('@aurelia/vite-plugin');
-      config.plugins = [
-        ...(config.plugins ?? []),
-        aurelia({ useDev: options.configType !== 'PRODUCTION' }),
-      ];
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(
-        `@aurelia/storybook needs @aurelia/vite-plugin when used with the Vite builder. ${message}`,
-        { cause: error }
-      );
-    }
+    const { default: aurelia } = await importPeer(
+      () => import('@aurelia/vite-plugin'),
+      '@aurelia/vite-plugin',
+      'Vite'
+    );
+    config.plugins = [
+      ...(config.plugins ?? []),
+      aurelia({ useDev: options.configType !== 'PRODUCTION' }),
+    ];
   }
 
   config.define = {
-    ...(config.define ?? {}),
+    ...config.define,
     'process.env.NODE_ENV':
       config.define?.['process.env.NODE_ENV'] ??
       JSON.stringify(process.env.NODE_ENV || 'development'),
   };
   config.optimizeDeps = {
-    ...(config.optimizeDeps ?? {}),
+    ...config.optimizeDeps,
     exclude: addUnique(config.optimizeDeps?.exclude, aureliaRuntimePackages),
   };
   config.resolve = {
-    ...(config.resolve ?? {}),
+    ...config.resolve,
     dedupe: addUnique(config.resolve?.dedupe, aureliaRuntimePackages),
   };
   return config;
 }
 
-async function loadMergeRsbuildConfig() {
-  try {
-    const { mergeRsbuildConfig } = await import('@rsbuild/core');
-    return mergeRsbuildConfig;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `@aurelia/storybook needs @rsbuild/core when used with the Rsbuild builder. ${message}`,
-      { cause: error }
-    );
-  }
-}
-
 export async function rsbuildFinal(config: Record<string, any>) {
-  const mergeRsbuildConfig = await loadMergeRsbuildConfig();
+  const { mergeRsbuildConfig } = await importPeer(
+    () => import('@rsbuild/core'),
+    '@rsbuild/core',
+    'Rsbuild'
+  );
   return mergeRsbuildConfig(config, {
     tools: {
       rspack: (rspackConfig: Record<string, any>) => {
-        const moduleConfig = rspackConfig.module ?? (rspackConfig.module = {});
-        const rules = moduleConfig.rules ?? (moduleConfig.rules = []);
-        appendUniqueRules(rules, getRsbuildRules());
+        rspackConfig.module ??= {};
+        rspackConfig.module.rules ??= [];
+        appendUniqueRules(rspackConfig.module.rules, getRsbuildRules());
         return rspackConfig;
       },
     },
@@ -138,9 +138,9 @@ export async function rsbuildFinal(config: Record<string, any>) {
 }
 
 export async function webpackFinal(config: Record<string, any>) {
-  const moduleConfig = config.module ?? (config.module = {});
-  const rules = moduleConfig.rules ?? (moduleConfig.rules = []);
-  appendUniqueRules(rules, getRules());
+  config.module ??= {};
+  config.module.rules ??= [];
+  appendUniqueRules(config.module.rules, getRules());
   return config;
 }
 

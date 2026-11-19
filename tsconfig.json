@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["src", "__tests__", "vitest.config.ts"]
+  "include": ["src", "__tests__", "e2e", "vitest.config.ts", "playwright.config.ts"]
 }
